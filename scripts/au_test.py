@@ -36,8 +36,8 @@ def run():
     fday = options.f and datetime.strptime(options.f, config.DATE_FORMAT) or 0
     tday = options.t and datetime.strptime(options.t, config.DATE_FORMAT) or 0
     redis_cli = get_redis_client()
-    filters   = dwarf.dau.Filter().expand(redis_cli, gender=0).overlap(redis_cli, regu=1)
-    print filters.count()
+    filters   = None#dwarf.dau.Filter().expand(redis_cli, gender=0).overlap(redis_cli, regu=1)
+    # print filters.count()
     au = dwarf.dau.AUstat(bday, redis_cli, filters= filters)
     print "baseDay:", bday , "from:" , fday, "to:", tday
     s = time.time()

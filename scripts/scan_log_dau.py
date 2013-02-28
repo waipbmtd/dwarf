@@ -9,6 +9,7 @@ import re
 import tornado
 import time
 import gzip
+from bitarray import bitarray
 from tornado.options import options, define
 from datetime import date, datetime, timedelta
 try:
@@ -40,14 +41,16 @@ class redisPipeline:
         if self.count & 0xFF == 0:
             self._save()
 
-def get_redis_client():
+def get_redis_client(pipe=False):
     conf = config.redis_conf
     try:
-        # conn = redis.Redis(host=conf['host'], port=conf['port'], db=conf['db'])
-        conn = redisPipeline(conf)
+        if pipe:
+            conn = redisPipeline(conf)
+        else:
+            conn = redis.Redis(**conf)
         return conn
     except Exception, e:
-        print "redis connection Error!"
+        print "redis connection Error!", e
         raise e
 
 def markActiveUserid(date, userid, redis_cli):
@@ -59,8 +62,6 @@ def markActiveUserid(date, userid, redis_cli):
 def scanLogFile(date):
     fconf     = config.logfile_conf
     filename  = fconf['dir']+fconf['name_format'].format(date=date)
-    cmd       = fconf['stdout_sh'].format(filename=filename) 
-    # p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
     print('open log file:', filename)
     if re.search('.gz$', filename):
         f = gzip.open(filename, 'rb')
@@ -85,6 +86,15 @@ def openLogFile(filename):
         f = open(filename, 'r')
     return f
 
+def genMapbytes(barr, uid):
+    bLen   = barr.length()
+    offset = int(uid)
+    if offset > 0 and offset <= config.MAX_BITMAP_LENGTH:
+        if bLen < offset:
+            barr += bitarray(1)*(offset-bLen)
+        barr[offset] = True
+    return barr
+
 
 def doScan(from_date, to_date, port='9022'):
     """
@@ -99,8 +109,13 @@ def doScan(from_date, to_date, port='9022'):
         sDate = date.strftime(config.DATE_FORMAT)
         print 'scan', sDate
         s = time.time()
-        for line in set(scanLogFile(sDate)):
-            markActiveUserid(sDate, line, redis_cli)
+        # for line in set(scanLogFile(sDate)):
+        #     markActiveUserid(sDate, line, redis_cli)
+        bitarr = bitarray(1*1000*10000)
+        for userid in scanLogFile(sDate):
+            bitarr = genMapbytes(bitarr, userid)
+        auRecord = dwarf.dau.AUrecord(redis_cli)
+        auRecord.mapActiveUseridbyByte(date, bitarr.tobytes())
         e = time.time()
         print 'Elapes:', e-s,'sec'
 

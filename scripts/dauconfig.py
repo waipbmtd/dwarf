@@ -17,7 +17,6 @@ redis_conf = dict(
 logfile_conf = dict(
     dir         = "/Users/Camel/snsLog/",
     name_format = "snsInfo-{date}.log.gz",
-    stdout_sh   = "cat {filename}",
 )
 
 dau_keys_conf = dict(

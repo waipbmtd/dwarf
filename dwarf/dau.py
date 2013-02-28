@@ -25,10 +25,7 @@ class AUstat():
             print('Need redis connection but not have')
             raise KeyError,'Redis connection not found'
         self.REDIS          = redis_cli
-        # self.baseBitmap     = Bitmap() #用于分析的基准Bitmap对象
-        # self.newUserBitmap  = Bitmap()
         self.baseDay        = baseday
-        # if baseday:
         self.baseBitmap     = self._make_bitmap(baseday, filters) 
         self.newUserBitmap  = self.get_newuser_bitmap(baseday, filters)
 
@@ -223,16 +220,28 @@ class AUrecord():
 
     def mapActiveUserid(self, date, userid):
         """
-        Mark the active userid in bitmap key
+        Record the active userid
         """
-        DAU_KEY   = config.dau_keys_conf['dau'].format(date=date)
+        sDate     = date.strftime(config.DATE_FORMAT)
+        reKey     = config.dau_keys_conf['dau'].format(date=sDate)
         redis_cli = self.get_redis_cli()
-        reKey     = DAU_KEY.format(date=date)
         offset    = int(userid)
         if offset > 0 and offset <= config.MAX_BITMAP_LENGTH:
             redis_cli.setbit(reKey, offset, 1)
             logging.debug('Save auid in redis by setbit %s %d' % (reKey, offset)) 
             return 1
+
+    def mapActiveUseridbyByte(self, date, bytes):
+        """
+        Save Active User map by byte data
+        """
+        sDate     = date.strftime(config.DATE_FORMAT)
+        reKey     = config.dau_keys_conf['dau'].format(date=sDate)
+        redis_cli = self.get_redis_cli()
+        logging.debug('Save dau bytes: %s' % reKey)
+        redis_cli.set(reKey, bytes)
+        return
+
 
     def saveNewUserIndex(self, date, userid):
         """

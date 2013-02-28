@@ -3,6 +3,7 @@
 #name: Mapping the newuserid and filter
 #by Camelsky 2013-02-20
 
+import logging
 try:
     import MySQLdb
     import redis
@@ -16,7 +17,7 @@ from datetime import date, datetime, timedelta
 import time
 import dauconfig
 import dwarf.dau
-import logging
+import util
 
 config = dauconfig
 
@@ -68,18 +69,13 @@ def getNewUserid(date, mysql_conn):
     conn = mysql_conn
     if not mysql_conn:
         conn = get_mysql()
-    try:
-        logging.debug(sql % date) 
-        ret = conn.get(sql, date)
-        if ret:
-            uid = ret['id']
-            return uid
-        else:
-            return 0
-    except Exception, e:
-        raise e
-    finally:
-        conn.close()
+    logging.debug(sql % date) 
+    ret = conn.get(sql, date)
+    if ret:
+        uid = ret['id']
+        return uid
+    else:
+        return 0
 
 def getGenderUserid(from_date=None, mysql_conn=None):
     conn = mysql_conn
@@ -87,19 +83,62 @@ def getGenderUserid(from_date=None, mysql_conn=None):
         conn = get_mysql()
     sql     = "select id , gender from user %(where)s "
     where   = ""
+    args    = []
     if from_date:
         if not where:
             where += "where "
         where += "create_time > %s"
-        sql = sql % {'where' : where}
-        print sql % {'date':from_date}
-    ret = conn.iter(sql, from_date)
-    return ret
+        args += [from_date]
+    sql = sql % {'where' : where}
+    logging.info(sql, *args)
+    return conn.iter(sql, *args)
 
 def getRegUser(from_date=None, mysql_conn=None):
+    conn   = mysql_conn
+    sql = "select user_id from user_statics where userinfo_status = 2 %(where)s"
+    sWhere = ""
+    args    = []
+    if from_date:
+        sWhere += "and create_time > %s "
+        args += [from_date]
+    sql  = sql % {'where' : sWhere}
+    logging.info(sql, *args)
+    return conn.iter(sql, *args)
+
+def getVersionUserid(from_date=None, mysql_conn=None):
     conn = mysql_conn
-    sql = "select user_id from user_statics where userinfo_status = 2"
-    return conn.iter(sql)
+    sql  = "select client_version, user_id from user_statics %(where)s"
+    sWhere = ''
+    args   = []
+    if from_date:
+        sWhere += sWhere and " and create_time > %s" or "where create_time > %s"
+        args += [from_date]
+    sql  = sql % {'where' : sWhere}
+    logging.info(sql, *args)
+    return conn.iter(sql, *args)
+
+def getUAfromdb(from_date=None, mysql_conn=None):
+    conn = mysql_conn
+    sql  = "select a.id,b.client_version as client_version , (select ua from user_ua_record where user_id = a.id order by id desc limit 1) as ua from user a left join user_statics b on a.id = b.user_id %(where)s"
+    sWhere = ''
+    args   = []
+    if from_date:
+        sWhere += sWhere and "a.create_time >= %s" or "where a.create_time >= %s"
+        args = [from_date]
+    sql  = sql % {'where' : sWhere}
+    logging.info(sql, *args)
+    return conn.iter(sql, *args)
+
+def getUAuser(from_date=None, mysql_conn=None):
+    conn = mysql_conn
+    for v in getUAfromdb(from_date, mysql_conn):
+        user_id = v.id
+        client_version = v.client_version
+        uainfo  = util.splitUa(v.ua)
+        uainfo.update(client_version=client_version, user_id=user_id)
+        logging.debug("uainfo: %s " % uainfo)
+        yield uainfo
+
 
 def DateList(from_date, to_date):
     days        = (to_date-from_date).days+1
@@ -115,10 +154,18 @@ def mapNewUserid(dates, userids):
     auRecord = dwarf.dau.AUrecord(get_redis_client())
     map(auRecord.saveNewUserIndex, dates, userids)
 
-# def mapFilterid(filtername, data):
-#     auRecord = dwarf.dau.AUrecord(get_redis_client())
-#     for cls, userid in data:
-#         auRecord.mapFilter(filtername, cls, userid) 
+
+def doMap(do, from_date, to_date, auRecord, mysql_conn):
+    domap = {
+        'gender': lambda:[auRecord.mapFilter('gender', v.gender, v.id) for v in getGenderUserid(from_date, mysql_conn)]
+,
+        'regu': lambda:[auRecord.mapFilter('regu', 1, v.user_id) for v in getRegUser(from_date, mysql_conn)],
+        'version': lambda:[auRecord.mapFilter('version', v.client_version, v.user_id) for v in getVersionUserid(from_date, mysql_conn)],
+        'uainfo': lambda:[auRecord.mapFilter('platform', v['platform'], v['user_id']) for v in getUAuser(from_date, mysql_conn)]
+    }
+    if do == 'all':
+        return [v() for v in domap.values()]
+    return domap[do]()
 
 def run():
     define("f", default=None)
@@ -137,31 +184,24 @@ def run():
         options.t = sYesterday_date
 
     try:
-        from_date   = datetime.strptime(options.f, config.DATE_FORMAT)
+        if options.f == 'n':
+            from_date = None
+        else:
+            from_date   = datetime.strptime(options.f, config.DATE_FORMAT)
         to_date     = datetime.strptime(options.t, config.DATE_FORMAT)
     except ValueError, e:
         raise e
     
     mysql_conn = get_mysql()
-    if options.do == 'all':
-        auRecord = dwarf.dau.AUrecord(get_redis_client(pipe=True))
-        genders = getGenderUserid(from_date, mysql_conn)
-        filtername = 'gender'
-        for v in genders:
-            auRecord.mapFilter('gender', v.gender, v.id)
-        count = 0 
-        for v in getRegUser(from_date, mysql_conn):
-            auRecord.mapFilter('regu', 1, v.user_id)
-            count += 1
-            if count & 0xFF == 0:
-                print count 
-    elif options.do == 'nu':
+    if options.do == 'nu':
         auRecord = dwarf.dau.AUrecord(get_redis_client())
         dates = DateList(from_date, to_date)
         users = idList(dates, mysql_conn)
-        # print users
         map(auRecord.saveNewUserIndex, dates, users)
-        # print zip(dates, users)
+    else:
+        auRecord = dwarf.dau.AUrecord(get_redis_client(pipe=True))
+        doMap(options.do, from_date, to_date, auRecord, mysql_conn)
+
 
 if __name__ == '__main__':
     s = time.time()
