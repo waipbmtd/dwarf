@@ -109,15 +109,15 @@ def doScan(from_date, to_date, port='9022'):
         sDate = date.strftime(config.DATE_FORMAT)
         print 'scan', sDate
         s = time.time()
-        # for line in set(scanLogFile(sDate)):
-        #     markActiveUserid(sDate, line, redis_cli)
-        bitarr = bitarray(1*1000*10000)
-        for userid in scanLogFile(sDate):
-            bitarr = genMapbytes(bitarr, userid)
-        auRecord = dwarf.dau.AUrecord(redis_cli)
-        auRecord.mapActiveUseridbyByte(date, bitarr.tobytes())
+        for line in set(scanLogFile(sDate)):
+            markActiveUserid(date, line, redis_cli)
+        # bitarr = bitarray(1*1000*10000)
+        # for userid in scanLogFile(sDate):
+        #     bitarr = genMapbytes(bitarr, userid)
+        # auRecord = dwarf.dau.AUrecord(redis_cli)
+        # auRecord.mapActiveUseridbyByte(date, bitarr.tobytes())
         e = time.time()
-        print 'Elapes:', e-s,'sec'
+        print 'Elapsed:', e-s,'sec'
 
 def run():
     define("f", default=None)

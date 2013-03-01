@@ -65,7 +65,7 @@ def get_redis_client(pipe=False):
 
 
 def getNewUserid(date, mysql_conn):
-    sql  = "select id from user where create_time > %s order by id limit 1"
+    sql  = "select id from user where create_time >= %s order by id limit 1"
     conn = mysql_conn
     if not mysql_conn:
         conn = get_mysql()
@@ -207,4 +207,4 @@ if __name__ == '__main__':
     s = time.time()
     run()
     e = time.time()
-    print "Elapes:",e-s,"sec"
+    print "Elapsed:",e-s,"sec"

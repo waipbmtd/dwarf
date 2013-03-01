@@ -59,14 +59,9 @@ class Bitmap(bitarray):
     def _and(self, bitarr):
         """
         base bitarray 与输入的任意长度bitarray进行与运算
-        返回运算后的结果
         """
-        baseLength = self.base.length()
-        oLength    = bitarr.length()
-
-        if baseLength >= oLength:
-            return self.base[:oLength] & bitarr
-        return self.base & bitarr[:baseLength]
+        bitarr = self._align_base(bitarr)
+        return self.base & bitarr
     
     def _align_base(self, b):
         """
@@ -76,10 +71,12 @@ class Bitmap(bitarray):
         base_len    = self.base.length()
         b_len       = b.length()
         diff        = base_len - b_len
+        diffbarr    = bitarray(abs(diff))
+        diffbarr.setall(False)
         if diff>0:
-            b += diff*bitarray('0')
+            b += diffbarr
         elif diff<0:
-            self.base += abs(diff)*bitarray('0')
+            self.base += diffbarr
         return b
 
     # def __repr__(self):

@@ -13,7 +13,7 @@ from tornado.options import define, options
 try:
     import dauconfig
 except ImportError:
-    raise ImportError, "Configure file 'config.py' was not found"
+    raise ImportError, "Configure file 'dauconfig.py' was not found"
 from aubitmap import Bitmap
 
 config = dauconfig
@@ -21,69 +21,74 @@ config = dauconfig
 class AUstat():
 
     def __init__(self, baseday=None, redis_cli=None, filters=None):
+        s = time.time()
         if not redis_cli:
             print('Need redis connection but not have')
             raise KeyError,'Redis connection not found'
         self.REDIS          = redis_cli
         self.baseDay        = baseday
-        self.baseBitmap     = self._make_bitmap(baseday, filters) 
-        self.newUserBitmap  = self.get_newuser_bitmap(baseday, filters)
+        self.filters        = filters
+        self.baseBitmap     = self._make_bitmap(baseday) 
+        logging.debug(time.time()-s)
+        self.newUserBitmap  = Bitmap()#self.get_newuser_bitmap(baseday)
+        logging.debug(time.time()-s)
+
 
 
     def _list_day(self, fday=None, tday=None):
         """
         return the date string list from fday to tday
         """
-        if not tday:
-            tday    = date.today().strftime(config.DATE_FORMAT)
-        if not fday:
-            fday    = date.today().strftime(config.DATE_FORMAT)
-        
-        date_fday   = date.today()
-        date_tday   = date.today()
-        try:
-            date_fday   = fday
-            date_tday   = tday
-        except Exception, e:
-            return False
+        date_fday   = fday or date.today()
+        date_tday   = tday or date.today()
         days        = (date_tday - date_fday).days+1
         dayList     = [date_fday+timedelta(v) for v in range(days)] 
         return dayList        
 
-    def _make_bitmap(self, day=None, filters=None):
+    def _make_bitmap(self, day=None):
         """
         initial and return dwarf.Bitmap object
         """
+        s = time.time()
         dauBitmap  = Bitmap()
         if day:
             DAU_KEY  = config.dau_keys_conf['dau']
             dauKey   = DAU_KEY.format(date=day.strftime(config.DATE_FORMAT))
             bitsDau  = self.REDIS.get(dauKey)
+            logging.debug('Redis get %s: %s Sec' % (dauKey, time.time()-s))
             if bitsDau:
                 dauBitmap.frombytes(bitsDau)
-        if filters:
-            dauBitmap.filter(filters)
+                logging.debug('Init bitmap: %s Sec' % (time.time()-s))
+        if self.filters:
+            dauBitmap.filter(self.filters)
+        e = time.time()
+        logging.debug('Handler: %s Sec' % (e-s))
         return dauBitmap
 
-    def get_newuser_bitmap(self, day=None, filters=None):
+    def get_newuser_bitmap(self, day=None):
         """
         返回新用户当日登陆记录bitmap对象
         """
-        dauBitmap = Bitmap()
+        # dauBitmap = Bitmap()
+        day = day or self.baseDay
+        offsets = 0
+        dauBitmap = Bitmap() 
         if day:
             offsets = self.REDIS.hget(config.dau_keys_conf['newuser'], 
                 day.strftime(config.DATE_FORMAT))
             if not offsets:
                 return dauBitmap
             offsets = int(offsets)
-            dauBitmap = self._make_bitmap(day)
+            dauBitmap = (day==self.baseDay) and Bitmap(self.baseBitmap) or self._make_bitmap(day)
         else:
-            dauBitmap = self.baseBitmap
-        
-        retBitmap = Bitmap(offsets*bitarray('0') + dauBitmap[offsets:])
-        if filters:
-            retBitmap.filter(filters)
-        return retBitmap
+            dauBitmap = Bitmap(self.baseBitmap)
+        s = time.time()
+        dauBitmap[:offsets] = False
+
+        logging.debug(time.time()-s)
+        # if self.filters:
+        #     retBitmap.filter(self.filters)
+        return dauBitmap
 
     def get_dau(self, day=None):
         """
@@ -166,11 +171,26 @@ class AUstat():
         return the list of newuser retained number and the date string
         """
         dayList = self._list_day(fday, tday)
+        if not self.newUserBitmap:
+            self.newUserBitmap = self.get_newuser_bitmap(self.baseDay)
         return zip(dayList, 
             self.newUserBitmap.retained_count(
                 *[self._make_bitmap(day) for day in dayList]
                 )
             )
+
+    def retained_by_daylist(self, dayList):
+        return zip(dayList, self.baseBitmap.retained_count(
+                *[self._make_bitmap(day) for day in dayList]
+            ))
+
+    def retained_nu_by_daylist(self,sayList):
+        return zip(dayList, 
+            self.newUserBitmap.retained_count(
+                *[self._make_bitmap(day) for day in dayList]
+                )
+            )
+
 
 class Filter(Bitmap):
     """
@@ -199,12 +219,12 @@ class Filter(Bitmap):
         fKey_format = config.filter_keys_conf.get(filtername)
         if not fKey_format:
             raise ValueError, "Can not find the key \'%s\' in config.filter_keys_conf" % k
-        print fKey_format,filtername,filterclass
+        logging.debug('%s, %s, %s',fKey_format,filtername,filterclass) 
         fKey  = fKey_format.format(**{filtername:filterclass})
         fBits = redis_cli.get(fKey)
         fBm   = Bitmap()
         fBm.frombytes(fBits)
-        print "fBm count:", fBm.count()
+        logging.debug("fBm count: %s", fBm.count()) 
         return fBm
 
 

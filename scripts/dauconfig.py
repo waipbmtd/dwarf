@@ -3,6 +3,7 @@
 
 DATETIME_FORMAT     = '%Y-%m-%d %H:%M:%S'
 DATE_FORMAT         = "%Y%m%d"
+DATE_FORMAT_R       = '%Y-%m-%d'
 STD_OFFSET          = 10000
 MAX_BITMAP_LENGTH   = 20000000
 
