@@ -35,4 +35,4 @@ nosetests.xml
 .pydevproject
 
 #configure file
-config.py
+*config.py

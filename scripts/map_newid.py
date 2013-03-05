@@ -17,6 +17,7 @@ from datetime import date, datetime, timedelta
 import time
 import dauconfig
 import dwarf.dau
+from dwarf.aubitmap import Bitmap
 import util
 
 config = dauconfig
@@ -95,7 +96,7 @@ def getGenderUserid(from_date=None, mysql_conn=None):
 
 def getRegUser(from_date=None, mysql_conn=None):
     conn   = mysql_conn
-    sql = "select user_id from user_statics where userinfo_status = 2 %(where)s"
+    sql = "select user_id from user_statics where userinfo_status >= 2 %(where)s"
     sWhere = ""
     args    = []
     if from_date:
@@ -119,7 +120,7 @@ def getVersionUserid(from_date=None, mysql_conn=None):
 
 def getUAfromdb(from_date=None, mysql_conn=None):
     conn = mysql_conn
-    sql  = "select a.id,b.client_version as client_version , (select ua from user_ua_record where user_id = a.id order by id desc limit 1) as ua from user a left join user_statics b on a.id = b.user_id %(where)s"
+    sql  = "select a.id, (select ua from user_ua_record where user_id = a.id order by id desc limit 1) as ua from user a %(where)s"
     sWhere = ''
     args   = []
     if from_date:
@@ -133,9 +134,8 @@ def getUAuser(from_date=None, mysql_conn=None):
     conn = mysql_conn
     for v in getUAfromdb(from_date, mysql_conn):
         user_id = v.id
-        client_version = v.client_version
         uainfo  = util.splitUa(v.ua)
-        uainfo.update(client_version=client_version, user_id=user_id)
+        uainfo.update(user_id=user_id)
         logging.debug("uainfo: %s " % uainfo)
         yield uainfo
 
@@ -143,7 +143,8 @@ def getUAuser(from_date=None, mysql_conn=None):
 def DateList(from_date, to_date):
     days        = (to_date-from_date).days+1
     dateList    = [from_date+timedelta(v) for v in range(days)] 
-    return dateList    
+    return dateList
+
 
 def idList(dates, mysql_conn):
     for date in dates:
@@ -154,6 +155,16 @@ def mapNewUserid(dates, userids):
     auRecord = dwarf.dau.AUrecord(get_redis_client())
     map(auRecord.saveNewUserIndex, dates, userids)
 
+def mapMau(fdate, tdate):
+    auR     = dwarf.dau.AUrecord(get_redis_client())
+    auS     = dwarf.dau.AUstat(redis_cli=get_redis_client())
+    lMonth  = util.monthdates(fdate, tdate)
+    for row in lMonth:
+        bitMau = auS.make_bitmap(row[0], 'mau')
+        bitMau.merge(*map(auS.make_bitmap, row))
+        auR.mapMaufromByte(row[0], bitMau.tobytes())
+
+
 
 def doMap(do, from_date, to_date, auRecord, mysql_conn):
     domap = {
@@ -161,11 +172,14 @@ def doMap(do, from_date, to_date, auRecord, mysql_conn):
 ,
         'regu': lambda:[auRecord.mapFilter('regu', 1, v.user_id) for v in getRegUser(from_date, mysql_conn)],
         'version': lambda:[auRecord.mapFilter('version', v.client_version, v.user_id) for v in getVersionUserid(from_date, mysql_conn)],
-        'uainfo': lambda:[auRecord.mapFilter('platform', v['platform'], v['user_id']) for v in getUAuser(from_date, mysql_conn)]
+        'uainfo': lambda:[auRecord.mapFilter('platform', v['platform'], v['user_id']) for v in getUAuser(from_date, mysql_conn)],
+        'mau': lambda: mapMau(from_date, to_date),
     }
     if do == 'all':
         return [v() for v in domap.values()]
-    return domap[do]()
+    if domap.get(do):
+        return domap.get(do)()
+    raise ValueError, "-do=%s is not known command" % do
 
 def run():
     define("f", default=None)

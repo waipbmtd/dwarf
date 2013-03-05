@@ -15,6 +15,7 @@ try:
 except ImportError:
     raise ImportError, "Configure file 'dauconfig.py' was not found"
 from aubitmap import Bitmap
+import util
 
 config = dauconfig
 
@@ -45,15 +46,18 @@ class AUstat():
         dayList     = [date_fday+timedelta(v) for v in range(days)] 
         return dayList        
 
-    def _make_bitmap(self, day=None):
+    def _make_bitmap(self, day=None, Type='dau'):
         """
         initial and return dwarf.Bitmap object
         """
         s = time.time()
         dauBitmap  = Bitmap()
         if day:
-            DAU_KEY  = config.dau_keys_conf['dau']
-            dauKey   = DAU_KEY.format(date=day.strftime(config.DATE_FORMAT))
+            DAU_KEY  = config.dau_keys_conf[Type]
+            if Type == 'mau':
+                dauKey   = DAU_KEY.format(month=day.strftime(config.MONTH_FORMAT))
+            else:
+                dauKey   = DAU_KEY.format(date=day.strftime(config.DATE_FORMAT))
             bitsDau  = self.REDIS.get(dauKey)
             logging.debug('Redis get %s: %s Sec' % (dauKey, time.time()-s))
             if bitsDau:
@@ -61,11 +65,13 @@ class AUstat():
                 logging.debug('Init bitmap: %s Sec' % (time.time()-s))
         if self.filters:
             dauBitmap.filter(self.filters)
-        e = time.time()
-        logging.debug('Handler: %s Sec' % (e-s))
+        logging.debug('Handler: %s Sec' % (time.time()-s))
         return dauBitmap
 
-    def get_newuser_bitmap(self, day=None):
+    def make_bitmap(self, day=None, Type='dau'):
+        return self._make_bitmap(day, Type)
+
+    def get_newuser_bitmap(self, day=None, Type='dau'):
         """
         返回新用户当日登陆记录bitmap对象
         """
@@ -74,20 +80,19 @@ class AUstat():
         offsets = 0
         dauBitmap = Bitmap() 
         if day:
+            if Type=='mau':
+                day = datetime(day.year, day.month, 1)
             offsets = self.REDIS.hget(config.dau_keys_conf['newuser'], 
                 day.strftime(config.DATE_FORMAT))
             if not offsets:
                 return dauBitmap
             offsets = int(offsets)
-            dauBitmap = (day==self.baseDay) and Bitmap(self.baseBitmap) or self._make_bitmap(day)
+            dauBitmap = (day==self.baseDay and Type=='dau') and Bitmap(self.baseBitmap) or self._make_bitmap(day, Type)
         else:
             dauBitmap = Bitmap(self.baseBitmap)
         s = time.time()
         dauBitmap[:offsets] = False
-
-        logging.debug(time.time()-s)
-        # if self.filters:
-        #     retBitmap.filter(self.filters)
+        logging.debug('get nu bitmap: %s Sec' % (time.time()-s))
         return dauBitmap
 
     def get_dau(self, day=None):
@@ -107,6 +112,16 @@ class AUstat():
             return self.newUserBitmap.count()    
         return self.get_newuser_bitmap(day).count()
 
+    def get_mau(self, date=None):
+        if not date:
+            date = self.baseDay
+        return self._make_bitmap(date, 'mau').count()
+
+    def get_mnu(self, date=None):
+        if not date:
+            date = self.baseDay
+        return self.get_newuser_bitmap(date, 'mau').count()
+
     def list_dau(self, fday=None, tday=None):
         """
         return a list of daily active user's number from fday to tday
@@ -123,9 +138,17 @@ class AUstat():
         dayList = self._list_day(fday, tday)
         return zip(dayList, map(self.get_dnu,dayList))
 
+    def list_mau(self, fday, tday):
+        lMonth = util.month1stdate(fday, tday)
+        return zip(lMonth, map(self.get_mau, lMonth))
+
+    def list_mnu(self, fday, tday):
+        lMonth = util.month1stdate(fday, tday)
+        return zip(lMonth, map(self.get_mnu, lMonth))
+
     def mau(self, fday=None, tday=None):
         """
-        return the Merged Active User number
+        return the Merged Active Users count from fday to tday
         """
         dayList = self._list_day(fday, tday)
         BaseBM  = self._make_bitmap()
@@ -155,7 +178,7 @@ class AUstat():
         bm  = self._make_bitmap(day)
         return self.baseBitmap.retained(bm)
 
-    def get_retained(self, fday=None, tday=None):
+    def get_retained(self, fday, tday):
         """
         return the list of daily retained number from fday to tday
         """
@@ -166,7 +189,19 @@ class AUstat():
                 )
             )
 
-    def get_retained_nu(self, fday=None, tday=None):
+    def get_month_retained(self, fday, tday):
+        """
+        monthly retained au count from fday's month to tday's month
+        """
+        lMdates1 = util.month1stdate(fday, tday)
+        return zip(lMdates1,
+            self.make_bitmap(lMdates1[0],'mau').retained_count(
+                    *[self._make_bitmap(date, 'mau') for date in lMdates1]
+                )
+            )
+
+
+    def get_retained_nu(self, fday, tday):
         """
         return the list of newuser retained number and the date string
         """
@@ -179,12 +214,25 @@ class AUstat():
                 )
             )
 
+    def get_month_retained_nu(self, fday, tday):
+        """
+        Monthly newuser retained count from fday's month to tday's month
+        """
+        lMdates1    = util.month1stdate(fday, tday)
+        MnuBitmap   = self.get_newuser_bitmap(lMdates1[0], 'mau')
+        return zip(lMdates1,
+            MnuBitmap.retained_count(
+                *[self._make_bitmap(date, 'mau') for date in lMdates1]
+                )
+            )
+
+
     def retained_by_daylist(self, dayList):
         return zip(dayList, self.baseBitmap.retained_count(
                 *[self._make_bitmap(day) for day in dayList]
             ))
 
-    def retained_nu_by_daylist(self,sayList):
+    def retained_nu_by_daylist(self,dayList):
         return zip(dayList, 
             self.newUserBitmap.retained_count(
                 *[self._make_bitmap(day) for day in dayList]
@@ -230,7 +278,7 @@ class Filter(Bitmap):
 
 class AUrecord():
     """
-    Do record active user's map in given redis db
+    Do save active user's bit map record in given redis db
     """
 
     def __init__(self, redis_cli):
@@ -240,7 +288,7 @@ class AUrecord():
 
     def mapActiveUserid(self, date, userid):
         """
-        Record the active userid
+        Save active userid
         """
         sDate     = date.strftime(config.DATE_FORMAT)
         reKey     = config.dau_keys_conf['dau'].format(date=sDate)
@@ -249,19 +297,29 @@ class AUrecord():
         if offset > 0 and offset <= config.MAX_BITMAP_LENGTH:
             redis_cli.setbit(reKey, offset, 1)
             logging.debug('Save auid in redis by setbit %s %d' % (reKey, offset)) 
-            return 1
+            
 
     def mapActiveUseridbyByte(self, date, bytes):
         """
-        Save Active User map by byte data
+        Save Active userid by bytes
         """
         sDate     = date.strftime(config.DATE_FORMAT)
         reKey     = config.dau_keys_conf['dau'].format(date=sDate)
         redis_cli = self.get_redis_cli()
         logging.debug('Save dau bytes: %s' % reKey)
         redis_cli.set(reKey, bytes)
-        return
+        
 
+    def mapMaufromByte(self, date, bytes):
+        """
+        Save Monthly Active userid by bytes
+        """
+        sMonth    = date.strftime(config.MONTH_FORMAT)
+        reKey     = config.dau_keys_conf['mau'].format(month=sMonth)
+        redis_cli = self.get_redis_cli()
+        logging.debug('Save mau from bytes: %s' % reKey)
+        redis_cli.set(reKey, bytes)
+         
 
     def saveNewUserIndex(self, date, userid):
         """
@@ -289,7 +347,7 @@ class AUrecord():
         if offset>0 and offset <= config.MAX_BITMAP_LENGTH:
             redis_cli.setbit(rKey, offset, 1)
             logging.debug('Save auid in redis by setbit %s %d 1' % (rKey, offset)) 
-            return 1
+            
 
 
     def get_redis_cli(self):
