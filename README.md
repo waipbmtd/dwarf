@@ -1,4 +1,4 @@
 dwarf
 =====
 
-A simple data stats tool , special for active user 
+A simple stats tool , special for active user 
