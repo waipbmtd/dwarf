@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-#Bitmap 对象
+#Bitmap
 #Auth: Camel
 #email: camelsky@gmail.com
 

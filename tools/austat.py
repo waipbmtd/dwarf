@@ -24,7 +24,7 @@ class austat():
         self.au        = self._instance_au(baseDay)
 
     def _instance_au(self, baseDay=None):
-        return dwarf.dau.AUstat(baseDay, self.redis_cli, filters=self.filters)
+        return dwarf.dau.AUstat(baseDay, self.redis_cli, filters=self.filters, cache=True)
 
     def _get_redis_client(self):
         "instance redis connection "

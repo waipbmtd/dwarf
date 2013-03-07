@@ -18,10 +18,16 @@ from aubitmap import Bitmap
 import util
 
 config = dauconfig
+def stdoffset():
+    return config.STD_OFFSET
 
 class AUstat():
 
-    def __init__(self, baseday=None, redis_cli=None, filters=None):
+    _cache_dict          = {}
+    _max_cache_lens = 1024
+    _is_cache       = False
+
+    def __init__(self, baseday=None, redis_cli=None, filters=None, cache=True):
         s = time.time()
         if not redis_cli:
             print('Need redis connection but not have')
@@ -29,11 +35,32 @@ class AUstat():
         self.REDIS          = redis_cli
         self.baseDay        = baseday
         self.filters        = filters
+        self._is_cache      = cache
         self.baseBitmap     = self._make_bitmap(baseday) 
         logging.debug(time.time()-s)
         self.newUserBitmap  = Bitmap()#self.get_newuser_bitmap(baseday)
         logging.debug(time.time()-s)
 
+
+    def _get_cache(self, key):
+        logging.debug('get from cache: %s', key)
+        if self._cache_dict.has_key(key):
+            return self._cache_dict.get(key)
+
+    def _cache(self, key, value):
+        if self._is_cache:
+            self._cache_reduce()
+            self._cache_dict.update({key:value})
+            logging.debug('save in cache: %s', key)
+            logging.debug(self._cache_dict.viewkeys())
+
+    
+    def _cache_reduce(self):
+        logging.debug("cache length: %s" , len(self._cache_dict))
+        while len(self._cache_dict) > self._max_cache_lens:
+            if len(self._cache_dict) > 0:
+                self._cache_dict.popitem()
+        logging.debug("reduce cache to: %s" % len(self._cache_dict))
 
 
     def _list_day(self, fday=None, tday=None):
@@ -58,14 +85,17 @@ class AUstat():
                 dauKey   = DAU_KEY.format(month=day.strftime(config.MONTH_FORMAT))
             else:
                 dauKey   = DAU_KEY.format(date=day.strftime(config.DATE_FORMAT))
-            bitsDau  = self.REDIS.get(dauKey)
-            logging.debug('Redis get %s: %s Sec' % (dauKey, time.time()-s))
-            if bitsDau:
-                dauBitmap.frombytes(bitsDau)
-                logging.debug('Init bitmap: %s Sec' % (time.time()-s))
-        if self.filters:
-            dauBitmap.filter(self.filters)
-        logging.debug('Handler: %s Sec' % (time.time()-s))
+            dauBitmap = self._get_cache(dauKey) or dauBitmap
+            if not dauBitmap:
+                bitsDau  = self.REDIS.get(dauKey)
+                logging.debug('Redis get %s: %s Sec' % (dauKey, time.time()-s))
+                if bitsDau:
+                    dauBitmap.frombytes(bitsDau)
+                    logging.debug('Init bitmap: %s Sec' % (time.time()-s))
+                if self.filters:
+                    dauBitmap.filter(self.filters)
+                self._cache(dauKey, dauBitmap)
+        logging.debug('_make_bitmap Handler: %s Sec' % (time.time()-s))
         return dauBitmap
 
     def make_bitmap(self, day=None, Type='dau'):
@@ -75,24 +105,26 @@ class AUstat():
         """
         返回新用户当日登陆记录bitmap对象
         """
-        # dauBitmap = Bitmap()
         day = day or self.baseDay
         offsets = 0
         dauBitmap = Bitmap() 
         if day:
             if Type=='mau':
                 day = datetime(day.year, day.month, 1)
-            offsets = self.REDIS.hget(config.dau_keys_conf['newuser'], 
-                day.strftime(config.DATE_FORMAT))
-            if not offsets:
-                return dauBitmap
-            offsets = int(offsets)
-            dauBitmap = (day==self.baseDay and Type=='dau') and Bitmap(self.baseBitmap) or self._make_bitmap(day, Type)
-        else:
-            dauBitmap = Bitmap(self.baseBitmap)
-        s = time.time()
-        dauBitmap[:offsets] = False
-        logging.debug('get nu bitmap: %s Sec' % (time.time()-s))
+            hKey = (config.dau_keys_conf['newuser'], 
+                    day.strftime(config.DATE_FORMAT))
+            dauBitmap = self._get_cache(hKey) or dauBitmap
+            if not dauBitmap:
+                offsets = self.REDIS.hget(*hKey)
+                
+                if not offsets:
+                    return dauBitmap
+                offsets = int(offsets)
+                dauBitmap = (day==self.baseDay and Type=='dau') and Bitmap(self.baseBitmap) or self._make_bitmap(day, Type)
+                s = time.time()
+                dauBitmap[:offsets] = False
+                self._cache(hKey, dauBitmap)
+                logging.debug('get nu bitmap: %s Sec' % (time.time()-s))
         return dauBitmap
 
     def get_dau(self, day=None):
@@ -293,7 +325,7 @@ class AUrecord():
         sDate     = date.strftime(config.DATE_FORMAT)
         reKey     = config.dau_keys_conf['dau'].format(date=sDate)
         redis_cli = self.get_redis_cli()
-        offset    = int(userid)
+        offset    = int(userid)-stdoffset()
         if offset > 0 and offset <= config.MAX_BITMAP_LENGTH:
             redis_cli.setbit(reKey, offset, 1)
             logging.debug('Save auid in redis by setbit %s %d' % (reKey, offset)) 
@@ -343,7 +375,7 @@ class AUrecord():
         rKey      = f_conf[filtername].format(**{filtername:filterclass})
         if not rKey:
             raise ValueError, "Haven't %s filter keys" % filtername
-        offset    = int(userid)
+        offset    = int(userid)-stdoffset()
         if offset>0 and offset <= config.MAX_BITMAP_LENGTH:
             redis_cli.setbit(rKey, offset, 1)
             logging.debug('Save auid in redis by setbit %s %d 1' % (rKey, offset)) 

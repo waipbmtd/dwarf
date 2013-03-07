@@ -1,2 +1,5 @@
 redis
 bitarray
+tornado==2.4
+MySQL-python
+-e ./

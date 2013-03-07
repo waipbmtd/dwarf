@@ -96,10 +96,11 @@ def getGenderUserid(from_date=None, mysql_conn=None):
 
 def getRegUser(from_date=None, mysql_conn=None):
     conn   = mysql_conn
-    sql = "select user_id from user_statics where userinfo_status >= 2 %(where)s"
+    sql = "select user_id, userinfo_status from user_statics %(where)s"
     sWhere = ""
     args    = []
     if from_date:
+        sWhere += sWhere.lower().find('where')<=0 and 'where ' or ''
         sWhere += "and create_time > %s "
         args += [from_date]
     sql  = sql % {'where' : sWhere}
@@ -170,9 +171,10 @@ def doMap(do, from_date, to_date, auRecord, mysql_conn):
     domap = {
         'gender': lambda:[auRecord.mapFilter('gender', v.gender, v.id) for v in getGenderUserid(from_date, mysql_conn)]
 ,
-        'regu': lambda:[auRecord.mapFilter('regu', 1, v.user_id) for v in getRegUser(from_date, mysql_conn)],
+        'regu': lambda:[auRecord.mapFilter('regu', v.userinfo_status, v.user_id) for v in getRegUser(None, mysql_conn)],
         'version': lambda:[auRecord.mapFilter('version', v.client_version, v.user_id) for v in getVersionUserid(from_date, mysql_conn)],
-        'uainfo': lambda:[auRecord.mapFilter('platform', v['platform'], v['user_id']) for v in getUAuser(from_date, mysql_conn)],
+        'uainfo': lambda:[(auRecord.mapFilter('platform', v['platform'], v['user_id']),
+            auRecord.mapFilter('channel', v['channel'], v['user_id'])) for v in getUAuser(from_date, mysql_conn)],
         'mau': lambda: mapMau(from_date, to_date),
     }
     if do == 'all':
@@ -188,8 +190,8 @@ def run():
     tornado.options.parse_command_line()
 
     #计算时间范围
-    Today_date      = date.today()
-    Yesterday_date  = date.today()-timedelta(days=1)
+    Today_date      = datetime.today()
+    Yesterday_date  = datetime.today()-timedelta(days=1)
     sToday_date     = Today_date.strftime(config.DATE_FORMAT)
     sYesterday_date = Yesterday_date.strftime(config.DATE_FORMAT)
     if not options.f : 
