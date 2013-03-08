@@ -83,14 +83,13 @@ def getGenderUserid(from_date=None, mysql_conn=None):
     if not mysql_conn:
         conn = get_mysql()
     sql     = "select id , gender from user %(where)s "
-    where   = ""
+    sWhere   = ""
     args    = []
     if from_date:
-        if not where:
-            where += "where "
-        where += "create_time > %s"
+        sWhere += "create_time > %s"
         args += [from_date]
-    sql = sql % {'where' : where}
+    sWhere = (sWhere and sWhere.lower().find('where') < 0) and ' where %s ' % sWhere or sWhere 
+    sql = sql % {'where' : sWhere}
     logging.info(sql, *args)
     return conn.iter(sql, *args)
 
@@ -103,6 +102,9 @@ def getRegUser(from_date=None, mysql_conn=None):
         sWhere += sWhere.lower().find('where')<=0 and 'where ' or ''
         sWhere += "and create_time > %s "
         args += [from_date]
+    
+    sWhere = (sWhere and sWhere.lower().find('where') < 0) and ' where %s ' % sWhere or sWhere 
+    
     sql  = sql % {'where' : sWhere}
     logging.info(sql, *args)
     return conn.iter(sql, *args)
@@ -113,8 +115,11 @@ def getVersionUserid(from_date=None, mysql_conn=None):
     sWhere = ''
     args   = []
     if from_date:
-        sWhere += sWhere and " and create_time > %s" or "where create_time > %s"
+        sWhere += " and create_time > %s" 
         args += [from_date]
+
+    sWhere = (sWhere and sWhere.lower().find('where') < 0) and ' where %s ' % sWhere or sWhere 
+
     sql  = sql % {'where' : sWhere}
     logging.info(sql, *args)
     return conn.iter(sql, *args)
@@ -125,8 +130,11 @@ def getUAfromdb(from_date=None, mysql_conn=None):
     sWhere = ''
     args   = []
     if from_date:
-        sWhere += sWhere and "a.create_time >= %s" or "where a.create_time >= %s"
+        sWhere += " a.create_time >= %s "
         args = [from_date]
+
+    sWhere = (sWhere and sWhere.lower().find('where') < 0) and " where %s " % sWhere or sWhere 
+
     sql  = sql % {'where' : sWhere}
     logging.info(sql, *args)
     return conn.iter(sql, *args)
