@@ -35,3 +35,10 @@ def monthdates(fday, tday):
             ret.append(row)
     return ret
 
+def list_day(fday, tday):
+    """
+    return the date string list from fday to tday
+    """
+    days        = (tday - fday).days+1
+    dayList     = [fday+timedelta(v) for v in range(days)] 
+    return dayList        

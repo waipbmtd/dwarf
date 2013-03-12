@@ -23,15 +23,15 @@ def stdoffset():
 
 class AUstat():
 
-    _cache_dict          = {}
-    _max_cache_lens = 1024
-    _is_cache       = False
 
     def __init__(self, baseday=None, redis_cli=None, filters=None, cache=True):
         s = time.time()
         if not redis_cli:
             print('Need redis connection but not have')
             raise KeyError,'Redis connection not found'
+        self._cache_dict          = {}
+        self._max_cache_lens = 1024
+        self._is_cache       = False
         self.REDIS          = redis_cli
         self.baseDay        = baseday
         self.filters        = filters
@@ -212,12 +212,23 @@ class AUstat():
 
     def get_retained(self, fday, tday):
         """
-        return the list of daily retained number from fday to tday
+        the self.baseday's daily retained number from fday to tday
         """
         dayList = self._list_day(fday, tday)
         return zip(dayList, 
             self.baseBitmap.retained_count(
                 *[self._make_bitmap(day) for day in dayList]
+                )
+            )
+
+    def daily_retained_list(self, fday, tday):
+        """
+        the fday's retained number from fday to today
+        """
+        dayList = self._list_day(fday,tday)
+        return zip(dayList, 
+            self.make_bitmap(dayList[0],'dau').retained_count(
+                *[self.make_bitmap(day, 'dau') for day in dayList]
                 )
             )
 
@@ -245,6 +256,19 @@ class AUstat():
                 *[self._make_bitmap(day) for day in dayList]
                 )
             )
+
+    def daily_nu_retained_list(self, fday, tday):
+        """
+        fday's newuser retained number from fday to tday
+        """
+        dayList = self._list_day(fday, tday)
+        nuBitmap = self.get_newuser_bitmap(dayList[0])
+        return zip(dayList, 
+            nuBitmap.retained_count(
+                *[self.make_bitmap(day, 'dau') for day in dayList]
+                )
+            )
+
 
     def get_month_retained_nu(self, fday, tday):
         """
