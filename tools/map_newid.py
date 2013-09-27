@@ -86,7 +86,7 @@ def getGenderUserid(from_date=None, mysql_conn=None):
     sWhere   = ""
     args    = []
     if from_date:
-        sWhere += "create_time > %s"
+        sWhere += "create_time >= %s"
         args += [from_date]
     sWhere = (sWhere and sWhere.lower().find('where') < 0) and ' where %s ' % sWhere or sWhere 
     sql = sql % {'where' : sWhere}
@@ -100,7 +100,7 @@ def getRegUser(from_date=None, mysql_conn=None):
     args    = []
     if from_date:
         sWhere += sWhere.lower().find('where')<=0 and 'where ' or ''
-        sWhere += "and create_time > %s "
+        sWhere += "and create_time >= %s "
         args += [from_date]
     
     sWhere = (sWhere and sWhere.lower().find('where') < 0) and ' where %s ' % sWhere or sWhere 
@@ -115,7 +115,7 @@ def getVersionUserid(from_date=None, mysql_conn=None):
     sWhere = ''
     args   = []
     if from_date:
-        sWhere += " and create_time > %s" 
+        sWhere += " create_time >= %s" 
         args += [from_date]
 
     sWhere = (sWhere and sWhere.lower().find('where') < 0) and ' where %s ' % sWhere or sWhere 
@@ -177,13 +177,12 @@ def mapMau(fdate, tdate):
 
 def doMap(do, from_date, to_date, auRecord, mysql_conn):
     domap = {
-        'gender': lambda:[auRecord.mapFilter('gender', v.gender, v.id) for v in getGenderUserid(from_date, mysql_conn)]
-,
+        'gender': lambda:[auRecord.mapFilter('gender', v.gender, v.id) for v in getGenderUserid(from_date, mysql_conn)],
         'regu': lambda:[auRecord.mapFilter('regu', v.userinfo_status, v.user_id) for v in getRegUser(None, mysql_conn)],
         'version': lambda:[auRecord.mapFilter('version', v.client_version, v.user_id) for v in getVersionUserid(from_date, mysql_conn)],
         'uainfo': lambda:[(auRecord.mapFilter('platform', v['platform'], v['user_id']),
             auRecord.mapFilter('channel', v['channel'], v['user_id'])) for v in getUAuser(from_date, mysql_conn)],
-        'mau': lambda: mapMau(from_date, to_date),
+        # 'mau': lambda: mapMau(from_date, to_date),
     }
     if do == 'all':
         return [v() for v in domap.values()]
@@ -222,6 +221,8 @@ def run():
         dates = DateList(from_date, to_date)
         users = idList(dates, mysql_conn)
         map(auRecord.saveNewUserIndex, dates, users)
+    elif options.do == 'mau':
+        mapMau(from_date, to_date)
     else:
         auRecord = dwarf.dau.AUrecord(get_redis_client(pipe=True))
         doMap(options.do, from_date, to_date, auRecord, mysql_conn)

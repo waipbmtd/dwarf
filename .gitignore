@@ -36,3 +36,5 @@ nosetests.xml
 
 #configure file
 *config.py
+
+.DS_Store

@@ -75,19 +75,6 @@ def splitUa(ua="-"):
     return uaDetail
     #{'channel':...,'platform':...,'model':...}
 
-def month1stdate(fday, tday):
-    """
-    fday 到 tday 之间每个月1号的datetime
-    包括 fday 所属月
-    """
-    if tday < fday:
-        raise ValueError, "fday can't larger then tday"
-    fyear   = from_date.year
-    fmonth  = from_date.month
-    tyear   = to_date.year
-    tmonth  = to_date.month
-    month_num = (tyear-fyear)*12+(tmonth-tyear)+1
-
 def monthdates(fday, tday):
     """
     拆分fday 到 tday 每日的datetime
