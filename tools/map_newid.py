@@ -126,7 +126,7 @@ def getVersionUserid(from_date=None, mysql_conn=None):
 
 def getUAfromdb(from_date=None, mysql_conn=None):
     conn = mysql_conn
-    sql  = "select a.id, (select ua from user_ua_record where user_id = a.id order by id desc limit 1) as ua from user a %(where)s"
+    sql  = "select a.id, (select ua from user_ua_record where user_id = a.id limit 1) as ua from user a %(where)s"
     sWhere = ''
     args   = []
     if from_date:
