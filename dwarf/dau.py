@@ -171,10 +171,18 @@ class AUstat():
         return zip(dayList, map(self.get_dnu,dayList))
 
     def list_mau(self, fday, tday):
+        """
+        month active user count
+        list_mau(string, string) -> [(datetime1, int),(datetime2,int),....]
+        """
         lMonth = util.month1stdate(fday, tday)
         return zip(lMonth, map(self.get_mau, lMonth))
 
     def list_mnu(self, fday, tday):
+        """
+        monthly new user count
+        list_mnu(string, string) -> [(datetime1, int),(datetime2,int),....]
+        """
         lMonth = util.month1stdate(fday, tday)
         return zip(lMonth, map(self.get_mnu, lMonth))
 
