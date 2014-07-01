@@ -13,22 +13,28 @@ from tornado.options import define, options
 try:
     import dauconfig
 except ImportError:
-    raise ImportError, "Configure file 'dauconfig.py' was not found"
+    raise ImportError, ("self.Configure file 'dauself.config.py' "
+        "or module dauself.config was not found")
 from aubitmap import Bitmap
 import util
 
-config = dauconfig
 def stdoffset():
-    return config.STD_OFFSET
+    return self.config.STD_OFFSET
 
 class AUstat():
 
 
-    def __init__(self, baseday=None, redis_cli=None, filters=None, cache=True):
+    def __init__(self, baseday=None, redis_cli=None,
+     filters=None, cache=True, config=None):
         s = time.time()
         if not redis_cli:
             print('Need redis connection but not have')
             raise KeyError,'Redis connection not found'
+        if not config:
+            self.config = dauconfig
+        else:
+            self.config = config
+
         self._cache_dict          = {}
         self._max_cache_lens = 1024
         self._is_cache       = False
@@ -56,11 +62,11 @@ class AUstat():
 
     
     def _cache_reduce(self):
-        logging.debug("cache length: %s" , len(self._cache_dict))
+        # logging.debug("cache length: %s" , len(self._cache_dict))
         while len(self._cache_dict) > self._max_cache_lens:
             if len(self._cache_dict) > 0:
                 self._cache_dict.popitem()
-        logging.debug("reduce cache to: %s" % len(self._cache_dict))
+        # logging.debug("reduce cache to: %s" % len(self._cache_dict))
 
 
     def _list_day(self, fday=None, tday=None):
@@ -77,14 +83,15 @@ class AUstat():
         """
         initial and return dwarf.Bitmap object
         """
+        # logging.info('make_bitmap:%s %s', day, Type)
         s = time.time()
         dauBitmap  = Bitmap()
         if day:
-            DAU_KEY  = config.dau_keys_conf[Type]
+            DAU_KEY  = self.config.dau_keys_conf[Type]
             if Type == 'mau':
-                dauKey   = DAU_KEY.format(month=day.strftime(config.MONTH_FORMAT))
+                dauKey   = DAU_KEY.format(month=day.strftime(self.config.MONTH_FORMAT))
             else:
-                dauKey   = DAU_KEY.format(date=day.strftime(config.DATE_FORMAT))
+                dauKey   = DAU_KEY.format(date=day.strftime(self.config.DATE_FORMAT))
             dauBitmap = self._get_cache(dauKey) or dauBitmap
             if not dauBitmap:
                 bitsDau  = self.REDIS.get(dauKey)
@@ -111,8 +118,8 @@ class AUstat():
         if day:
             if Type=='mau':
                 day = datetime(day.year, day.month, 1)
-            hKey = (config.dau_keys_conf['newuser'], 
-                    day.strftime(config.DATE_FORMAT))
+            hKey = (self.config.dau_keys_conf['newuser'], 
+                    day.strftime(self.config.DATE_FORMAT))
             dauBitmap = self._get_cache(hKey) or dauBitmap
             if not dauBitmap:
                 offsets = self.REDIS.hget(*hKey)
@@ -309,9 +316,10 @@ class Filter(Bitmap):
     Generate AU filter object
     Need redis db to fetch the filter data
     """
-    # def __ini__(self, *args, **kwargs):
-    #     super(Filter, self).__init__(*args, **kwargs)
-    #     return self
+    def __init__(self, config=None, *args, **kwargs):
+        super(Filter, self).__init__(*args, **kwargs)
+        self.config = config or dauconfig
+        return self
 
     def expand(self, redis_cli, **kwargs):
         for k,v in kwargs.items():
@@ -328,9 +336,9 @@ class Filter(Bitmap):
     def _get_filtet_bimap(self, redis_cli, filtername, filterclass):
         if not isinstance(redis_cli, redis.client.Redis):
             raise TypeError, "Need redis connection but not found"
-        fKey_format = config.filter_keys_conf.get(filtername)
+        fKey_format = self.config.filter_keys_conf.get(filtername)
         if not fKey_format:
-            raise ValueError, "Can not find the key \'%s\' in config.filter_keys_conf" % k
+            raise ValueError, "Can not find the key \'%s\' in self.config.filter_keys_conf" % k
         logging.debug('%s, %s, %s',fKey_format,filtername,filterclass) 
         fKey  = fKey_format.format(**{filtername:filterclass})
         fBits = redis_cli.get(fKey)
@@ -354,11 +362,11 @@ class AUrecord():
         """
         Save active userid
         """
-        sDate     = date.strftime(config.DATE_FORMAT)
-        reKey     = config.dau_keys_conf['dau'].format(date=sDate)
+        sDate     = date.strftime(self.config.DATE_FORMAT)
+        reKey     = self.config.dau_keys_conf['dau'].format(date=sDate)
         redis_cli = self.get_redis_cli()
         offset    = int(userid)-stdoffset()
-        if offset > 0 and offset <= config.MAX_BITMAP_LENGTH:
+        if offset > 0 and offset <= self.config.MAX_BITMAP_LENGTH:
             redis_cli.setbit(reKey, offset, 1)
             logging.debug('Save auid in redis by setbit %s %d' % (reKey, offset)) 
             
@@ -367,8 +375,8 @@ class AUrecord():
         """
         Save Active userid by bytes
         """
-        sDate     = date.strftime(config.DATE_FORMAT)
-        reKey     = config.dau_keys_conf['dau'].format(date=sDate)
+        sDate     = date.strftime(self.config.DATE_FORMAT)
+        reKey     = self.config.dau_keys_conf['dau'].format(date=sDate)
         redis_cli = self.get_redis_cli()
         logging.debug('Save dau bytes: %s' % reKey)
         redis_cli.set(reKey, bytes)
@@ -378,8 +386,8 @@ class AUrecord():
         """
         Save Monthly Active userid by bytes
         """
-        sMonth    = date.strftime(config.MONTH_FORMAT)
-        reKey     = config.dau_keys_conf['mau'].format(month=sMonth)
+        sMonth    = date.strftime(self.config.MONTH_FORMAT)
+        reKey     = self.config.dau_keys_conf['mau'].format(month=sMonth)
         redis_cli = self.get_redis_cli()
         logging.debug('Save mau from bytes: %s' % reKey)
         redis_cli.set(reKey, bytes)
@@ -389,11 +397,11 @@ class AUrecord():
         """
         Save new user id to redis
         """
-        sdate     = date.strftime(config.DATE_FORMAT)
-        rKey      = config.dau_keys_conf['newuser']
+        sdate     = date.strftime(self.config.DATE_FORMAT)
+        rKey      = self.config.dau_keys_conf['newuser']
         redis_cli = self.get_redis_cli()
         rVar      = int(userid)
-        if rVar > 0 and rVar <=  config.MAX_BITMAP_LENGTH:
+        if rVar > 0 and rVar <=  self.config.MAX_BITMAP_LENGTH:
             redis_cli.hset(rKey, sdate, rVar)
             logging.debug('save newuser id>> hset %s %s %s' % (rKey, sdate, rVar))
 
@@ -403,12 +411,12 @@ class AUrecord():
         Save userid map in filter
         """
         redis_cli = self.get_redis_cli()
-        f_conf    = config.filter_keys_conf
+        f_conf    = self.config.filter_keys_conf
         rKey      = f_conf[filtername].format(**{filtername:filterclass})
         if not rKey:
             raise ValueError, "Haven't %s filter keys" % filtername
         offset    = int(userid)-stdoffset()
-        if offset>0 and offset <= config.MAX_BITMAP_LENGTH:
+        if offset>0 and offset <= self.config.MAX_BITMAP_LENGTH:
             redis_cli.setbit(rKey, offset, 1)
             logging.debug('Save auid in redis by setbit %s %d 1' % (rKey, offset)) 
             

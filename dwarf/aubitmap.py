@@ -41,6 +41,15 @@ class Bitmap(bitarray):
             self.base &= b
         return self
 
+    def anti(self, *bitarrs):
+        """
+        反向筛选 - self.base 和 bitarrs的取反 与运算 
+        """
+        for b in bitarrs:
+            b = self._align_base(b)
+            self.base &= ~b 
+        return self
+
     def has_id(self, id):
         """
         bas_id(int) -> bool
