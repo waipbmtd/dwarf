@@ -40,6 +40,8 @@ class dauxBase(object):
             filter_keys_conf[k] = pref.format(key=v)
         return auconfig(dau_keys_conf, filter_keys_conf)
 
+    def uid_pos(self, uid):
+        pass
 
 class AUstat(dauxBase):
     

@@ -50,15 +50,17 @@ class AUstat():
     def _get_cache(self, key):
         logging.debug('get from cache: %s', key)
         if self._cache_dict.has_key(key):
-            return self._cache_dict.get(key)
+            cache = self._cache_dict.get(key)
+            logging.info('Get cache: %s %s', key, cache.count())
+            return cache
 
     def _cache(self, key, value):
         if self._is_cache:
             self._cache_reduce()
             self._cache_dict.update({key:value})
-            logging.debug('save in cache: %s', key)
-            logging.debug(self._cache_dict.viewkeys())
-
+            logging.info('save cache: %s %s', key, value.count())
+            # logging.info(self._cache_dict.viewkeys())
+            logging.info([(k, v.count()) for k,v in self._cache_dict.items()])
     
     def _cache_reduce(self):
         # logging.debug("cache length: %s" , len(self._cache_dict))
@@ -98,9 +100,9 @@ class AUstat():
                 if bitsDau:
                     dauBitmap.frombytes(bitsDau)
                     logging.debug('Init bitmap: %s Sec' % (time.time()-s))
-                if self.filters:
-                    dauBitmap.filter(self.filters)
-                self._cache(dauKey, dauBitmap)
+                    if self.filters:
+                        dauBitmap.filter(self.filters)
+                    self._cache(dauKey, dauBitmap)
         logging.debug('_make_bitmap Handler: %s Sec' % (time.time()-s))
         return dauBitmap
 
@@ -115,6 +117,7 @@ class AUstat():
         bmap = self._make_bitmap(day, Type)
         # logging.info('nbm: %s , %s', day, bmap.count())
         if bmap:
+            # logging.info('nbm: %s , %s', day, bmap.length())
             return bmap
         '''
         如果没有新用户的分区间映射数据，则按照偏移量获取新用户映射数据
@@ -126,6 +129,7 @@ class AUstat():
     def _get_newuser_bitmap(self, day=None, Type='dau'):
         """
         返回新用户当日登陆记录bitmap对象
+        适配记录每日新用户id偏移量的数据存储方式
         """
         day = day or self.baseDay
         offsets = 0
@@ -136,15 +140,17 @@ class AUstat():
             hKey = (self.config.dau_keys_conf['newuser'], 
                     day.strftime(self.config.DATE_FORMAT))
             dauBitmap = self._get_cache(hKey) or dauBitmap
+            logging.info('%s %s',hKey, dauBitmap.length())
             if not dauBitmap:
                 offsets = self.REDIS.hget(*hKey)
-                
+                logging.info(offsets)
                 if not offsets:
                     return dauBitmap
                 offsets = int(offsets)
-                dauBitmap = ((day==self.baseDay and Type=='dau')
+                bmp = ((day==self.baseDay and Type=='dau')
                  and Bitmap(self.baseBitmap) or self._make_bitmap(day, Type))
                 s = time.time()
+                dauBitmap = Bitmap(bmp) # 生成新的实例，避免被篡改
                 dauBitmap[:offsets] = False
                 self._cache(hKey, dauBitmap)
                 logging.debug('get nu bitmap: %s Sec' % (time.time()-s))
@@ -282,9 +288,10 @@ class AUstat():
         dayList = self._list_day(fday, tday)
         if not self.newUserBitmap:
             self.newUserBitmap = self.get_newuser_bitmap(self.baseDay)
+        logging.info('self.nUB: %s', self.newUserBitmap.count())
         return zip(dayList, 
             self.newUserBitmap.retained_count(
-                *[self._make_bitmap(day) for day in dayList]
+                *[self.make_bitmap(day) for day in dayList]
                 )
             )
 
