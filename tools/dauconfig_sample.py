@@ -6,9 +6,9 @@ DATE_FORMAT         = "%Y%m%d"
 MONTH_FORMAT        = "%Y%m"
 DATE_FORMAT_R       = '%Y-%m-%d'
 STD_OFFSET          = 0
-MAX_BITMAP_LENGTH   = 20*1000*1000*10
-BITMAP_BLK_LENS     = 10*10000
-BITMAP_BLK_PREFIX   = "%d-%s"
+MAX_BITMAP_LENGTH   = 1000*1000*200
+BITMAP_BLK_LEN      = 1000*1000*20
+BITMAP_BLK_PREFIX   = "%d-{key}"
 
 
 redis_conf = dict(

@@ -316,10 +316,12 @@ class Filter(Bitmap):
     Generate AU filter object
     Need redis db to fetch the filter data
     """
-    def __init__(self, config=None, *args, **kwargs):
-        super(Filter, self).__init__(*args, **kwargs)
+    def __new__(cls, config=None, *args, **kwargs):
+        return super(Filter, cls).__new__(cls, *args, **kwargs)
+
+    def __init__(self, config=None):
+        super(Filter, self).__init__()
         self.config = config or dauconfig
-        return self
 
     def expand(self, redis_cli, **kwargs):
         for k,v in kwargs.items():
@@ -341,10 +343,12 @@ class Filter(Bitmap):
             raise ValueError, "Can not find the key \'%s\' in self.config.filter_keys_conf" % k
         logging.debug('%s, %s, %s',fKey_format,filtername,filterclass) 
         fKey  = fKey_format.format(**{filtername:filterclass})
+        # logging.info(fKey)
         fBits = redis_cli.get(fKey)
         fBm   = Bitmap()
-        fBm.frombytes(fBits)
-        logging.debug("fBm count: %s", fBm.count()) 
+        if fBits:
+            fBm.frombytes(fBits)
+        # logging.debug("fBm count: %s", fBm.count()) 
         return fBm
 
 
@@ -353,9 +357,10 @@ class AUrecord():
     Do save active user's bit map record in given redis db
     """
 
-    def __init__(self, redis_cli):
+    def __init__(self, redis_cli, config=None):
         if not redis_cli:
             raise ValueError , "Need redis client but not found!"
+        self.config = config or dauconfig
         self.redis = redis_cli
 
     def mapActiveUserid(self, date, userid):
