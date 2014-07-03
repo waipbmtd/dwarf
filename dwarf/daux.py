@@ -153,11 +153,11 @@ class Filter(dauxBase):
         return self
 
 class auconfig():
-    DATETIME_FORMAT     = '%Y-%m-%d %H:%M:%S'
-    DATE_FORMAT         = "%Y%m%d"
-    MONTH_FORMAT        = "%Y%m"
-    DATE_FORMAT_R       = '%Y-%m-%d'
-    STD_OFFSET          = 0
+    DATETIME_FORMAT     = dauconfig.DATETIME_FORMAT
+    DATE_FORMAT         = dauconfig.DATE_FORMAT
+    MONTH_FORMAT        = dauconfig.MONTH_FORMAT
+    DATE_FORMAT_R       = dauconfig.DATE_FORMAT_R
+    STD_OFFSET          = dauconfig.STD_OFFSET
     def __init__(self, dau_conf, filter_conf):
         self.dau_keys_conf    = dau_conf
         self.filter_keys_conf = filter_conf

@@ -28,7 +28,6 @@ class AUstat():
      filters=None, cache=True, config=None):
         s = time.time()
         if not redis_cli:
-            print('Need redis connection but not have')
             raise KeyError,'Redis connection not found'
         if not config:
             self.config = dauconfig
@@ -88,7 +87,7 @@ class AUstat():
         dauBitmap  = Bitmap()
         if day:
             DAU_KEY  = self.config.dau_keys_conf[Type]
-            if Type == 'mau':
+            if Type in ('mau','mnu'):
                 dauKey   = DAU_KEY.format(month=day.strftime(self.config.MONTH_FORMAT))
             else:
                 dauKey   = DAU_KEY.format(date=day.strftime(self.config.DATE_FORMAT))
@@ -108,7 +107,23 @@ class AUstat():
     def make_bitmap(self, day=None, Type='dau'):
         return self._make_bitmap(day, Type)
 
-    def get_newuser_bitmap(self, day=None, Type='dau'):
+
+    def get_newuser_bitmap(self, day=None, Type='dnu'):
+        """
+        返回 day 或 day 所在月份的新用户bitmap对象
+        """
+        bmap = self._make_bitmap(day, Type)
+        # logging.info('nbm: %s , %s', day, bmap.count())
+        if bmap:
+            return bmap
+        '''
+        如果没有新用户的分区间映射数据，则按照偏移量获取新用户映射数据
+        '''
+        Type = Type=='dnu' and 'dau' or 'mau' 
+        bmap = self._get_newuser_bitmap(day, Type)
+        return bmap
+
+    def _get_newuser_bitmap(self, day=None, Type='dau'):
         """
         返回新用户当日登陆记录bitmap对象
         """
@@ -127,7 +142,8 @@ class AUstat():
                 if not offsets:
                     return dauBitmap
                 offsets = int(offsets)
-                dauBitmap = (day==self.baseDay and Type=='dau') and Bitmap(self.baseBitmap) or self._make_bitmap(day, Type)
+                dauBitmap = ((day==self.baseDay and Type=='dau')
+                 and Bitmap(self.baseBitmap) or self._make_bitmap(day, Type))
                 s = time.time()
                 dauBitmap[:offsets] = False
                 self._cache(hKey, dauBitmap)
@@ -316,26 +332,40 @@ class Filter(Bitmap):
     Generate AU filter object
     Need redis db to fetch the filter data
     """
-    def __new__(cls, config=None, *args, **kwargs):
+    def __new__(cls, config=None, redis_cli=None, *args, **kwargs):
         return super(Filter, cls).__new__(cls, *args, **kwargs)
 
-    def __init__(self, config=None):
+    def __init__(self, config=None, redis_cli=None):
         super(Filter, self).__init__()
-        self.config = config or dauconfig
+        self.config    = config or dauconfig
+        self.redis_cli = redis_cli
 
-    def expand(self, redis_cli, **kwargs):
+    def expand(self, redis_cli=None, **kwargs):
+        """
+        扩展筛选器
+        pass = condition1 or condition2
+        """
+        redis_cli = redis_cli or self.redis_cli
         for k,v in kwargs.items():
-            fBm = self._get_filtet_bimap(redis_cli, k, v)
+            fBm = self._get_filtet_bitmap(redis_cli, k, v)
             self.merge(fBm)
         return self
 
-    def overlap(self, redis_cli, **kwargs):
+    def overlap(self, redis_cli=None, **kwargs):
+        """
+        叠加筛选器
+        pass = condition1 and condition2
+        """
+        redis_cli = redis_cli or self.redis_cli
         for k,v in kwargs.items():
-            fBm = self._get_filtet_bimap(redis_cli, k, v)
+            fBm = self._get_filtet_bitmap(redis_cli, k, v)
             self.filter(fBm)
         return self
 
-    def _get_filtet_bimap(self, redis_cli, filtername, filterclass):
+    def _get_filtet_bitmap(self, redis_cli, filtername, filterclass):
+        """
+        由数据源获取筛选条件 BitMap
+        """
         if not isinstance(redis_cli, redis.client.Redis):
             raise TypeError, "Need redis connection but not found"
         fKey_format = self.config.filter_keys_conf.get(filtername)
