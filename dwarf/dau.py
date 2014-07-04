@@ -18,8 +18,8 @@ except ImportError:
 from aubitmap import Bitmap
 import util
 
-def stdoffset():
-    return self.config.STD_OFFSET
+def stdoffset(cls):
+    return cls.config.STD_OFFSET
 
 class AUstat():
 
@@ -405,13 +405,33 @@ class AUrecord():
         Save active userid
         """
         sDate     = date.strftime(self.config.DATE_FORMAT)
+        mDate     = date.strftime(self.config.MONTH_FORMAT)
         reKey     = self.config.dau_keys_conf['dau'].format(date=sDate)
+        moKey     = self.config.dau_keys_conf['mau'].format(month=mDate)
         redis_cli = self.get_redis_cli()
-        offset    = int(userid)-stdoffset()
-        if offset > 0 and offset <= self.config.MAX_BITMAP_LENGTH:
+        offset    = int(userid)
+        if offset > -1 and offset <= self.config.MAX_BITMAP_LENGTH:
             redis_cli.setbit(reKey, offset, 1)
             logging.debug('Save auid in redis by setbit %s %d' % (reKey, offset)) 
+            redis_cli.setbit(moKey, offset, 1)
+            logging.debug('Save auid in redis by setbit %s %d' % (moKey, offset)) 
             
+    def mapNewUser(self, date, userid):
+        """
+        set new userid
+        """
+        sDate     = date.strftime(self.config.DATE_FORMAT)
+        mDate     = date.strftime(self.config.MONTH_FORMAT)
+        reKey     = self.config.dau_keys_conf['dnu'].format(date=sDate)
+        moKey     = self.config.dau_keys_conf['mnu'].format(month=mDate)
+        redis_cli = self.get_redis_cli()
+        offset    = int(userid)
+        if offset > -1 and offset <= self.config.MAX_BITMAP_LENGTH:
+            redis_cli.setbit(reKey, offset, 1)
+            logging.debug('Save auid in redis by setbit %s %d' % (reKey, offset)) 
+            redis_cli.setbit(moKey, offset, 1)
+            logging.debug('Save auid in redis by setbit %s %d' % (moKey, offset)) 
+        
 
     def mapActiveUseridbyByte(self, date, bytes):
         """

@@ -17,6 +17,7 @@ from datetime import date, datetime, timedelta
 import time
 import dauconfig
 import dwarf.dau
+from dwarf.dau import AUrecord
 from dwarf.aubitmap import Bitmap
 import util
 
@@ -78,12 +79,19 @@ def getNewUserid(date, mysql_conn):
     else:
         return 0
 
+def getAllNewUserid(from_date, to_date, mysql_conn):
+    to_date = to_date+timedelta(1)
+    sql = "select date(create_time),id from user where create_time >= %s and create_time < %s"
+    ret = mysql_conn.iter(sql, from_date, to_date)
+    return ret
+
+
 def getGenderUserid(from_date=None, mysql_conn=None):
     conn = mysql_conn
     if not mysql_conn:
         conn = get_mysql()
     sql     = "select id , gender from user %(where)s "
-    sWhere   = ""
+    sWhere  = ""
     args    = []
     if from_date:
         sWhere += "create_time >= %s"
@@ -161,8 +169,12 @@ def idList(dates, mysql_conn):
 
 
 def mapNewUserid(dates, userids):
-    auRecord = dwarf.dau.AUrecord(get_redis_client())
+    auRecord = AUrecord(get_redis_client())
     map(auRecord.saveNewUserIndex, dates, userids)
+
+def setNewUserid(date, userid):
+    ar = AUrecord(redis_cli)
+    ar.mapNewUser(date, userid)
 
 def mapMau(fdate, tdate):
     auR     = dwarf.dau.AUrecord(get_redis_client())
