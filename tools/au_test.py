@@ -38,15 +38,15 @@ def run():
     tday = options.t and datetime.strptime(options.t, config.DATE_FORMAT) or 0
     redis_cli = get_redis_client()
 
-    filters   = dwarf.dau.Filter().expand(redis_cli, gender=1).overlap(redis_cli, regu=2)
-    filters  = filters.filter(dwarf.dau.Filter().expand(redis_cli, gender=2).overlap(redis_cli, regu=2))
+    # filters   = dwarf.dau.Filter().expand(redis_cli, gender=1).overlap(redis_cli, regu=2)
+    # filters  = filters.filter(dwarf.dau.Filter().expand(redis_cli, gender=2).overlap(redis_cli, regu=2))
     # filters = None
-    au = dwarf.dau.AUstat(bday, redis_cli, filters= filters, cache=True)
+    # au = dwarf.dau.AUstat(bday, redis_cli, filters= filters, cache=True)
   
-    # filters = dwarf.daux.Filter(redis_cli).expand(gender=1).overlap(regu=2)
-    # filters = filters.filter(dwarf.daux.Filter(redis_cli).expand(gender=2).overlap(regu=2))
-    # # filters = None
-    # au = dwarf.daux.AUstat(bday, redis_cli, filters= filters)
+    # # filters = dwarf.daux.Filter(redis_cli).expand(gender=1).overlap(regu=2)
+    # # filters = filters.filter(dwarf.daux.Filter(redis_cli).expand(gender=2).overlap(regu=2))
+    filters = None
+    au = dwarf.daux.AUstat(bday, redis_cli, filters= filters)
 
     print "baseDay:", bday , "from:" , fday, "to:", tday
 

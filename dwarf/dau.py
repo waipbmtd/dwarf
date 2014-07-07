@@ -60,7 +60,7 @@ class AUstat():
             self._cache_dict.update({key:value})
             logging.info('save cache: %s %s', key, value.count())
             # logging.info(self._cache_dict.viewkeys())
-            logging.info([(k, v.count()) for k,v in self._cache_dict.items()])
+            # logging.info([(k, v.count()) for k,v in self._cache_dict.items()])
     
     def _cache_reduce(self):
         # logging.debug("cache length: %s" , len(self._cache_dict))
@@ -96,10 +96,10 @@ class AUstat():
             dauBitmap = self._get_cache(dauKey) or dauBitmap
             if not dauBitmap:
                 bitsDau  = self.REDIS.get(dauKey)
-                logging.debug('Redis get %s: %s Sec' % (dauKey, time.time()-s))
+                logging.info('Redis get %s: %s Sec' % (dauKey, time.time()-s))
                 if bitsDau:
                     dauBitmap.frombytes(bitsDau)
-                    logging.debug('Init bitmap: %s Sec' % (time.time()-s))
+                    logging.info('Init bitmap:Count: %s: %s Sec' % (dauBitmap.count(),time.time()-s))
                     if self.filters:
                         dauBitmap.filter(self.filters)
                     self._cache(dauKey, dauBitmap)
@@ -140,7 +140,6 @@ class AUstat():
             hKey = (self.config.dau_keys_conf['newuser'], 
                     day.strftime(self.config.DATE_FORMAT))
             dauBitmap = self._get_cache(hKey) or dauBitmap
-            logging.info('%s %s',hKey, dauBitmap.length())
             if not dauBitmap:
                 offsets = self.REDIS.hget(*hKey)
                 logging.info(offsets)
@@ -301,7 +300,7 @@ class AUstat():
         """
         dayList = self._list_day(fday, tday)
         nuBitmap = self.get_newuser_bitmap(dayList[0])
-        return zip(dayList, 
+        return [[dayList.pop(0),nuBitmap.count()]]+zip(dayList, 
             nuBitmap.retained_count(
                 *[self.make_bitmap(day, 'dau') for day in dayList]
                 )
@@ -428,10 +427,10 @@ class AUrecord():
         offset    = int(userid)
         if offset > -1 and offset <= self.config.MAX_BITMAP_LENGTH:
             redis_cli.setbit(reKey, offset, 1)
-            logging.debug('Save auid in redis by setbit %s %d' % (reKey, offset)) 
+            # logging.debug('Save auid in redis by setbit %s %d' % (reKey, offset)) 
             redis_cli.setbit(moKey, offset, 1)
-            logging.debug('Save auid in redis by setbit %s %d' % (moKey, offset)) 
-        
+            # logging.debug('Save auid in redis by setbit %s %d' % (moKey, offset)) 
+
 
     def mapActiveUseridbyByte(self, date, bytes):
         """
@@ -472,12 +471,13 @@ class AUrecord():
         """
         Save userid map in filter
         """
+        logging.info('%s, %s, %s' % (filtername, filterclass, userid))
         redis_cli = self.get_redis_cli()
         f_conf    = self.config.filter_keys_conf
         rKey      = f_conf[filtername].format(**{filtername:filterclass})
         if not rKey:
             raise ValueError, "Haven't %s filter keys" % filtername
-        offset    = int(userid)-stdoffset()
+        offset    = int(userid)-stdoffset(self)
         if offset>0 and offset <= self.config.MAX_BITMAP_LENGTH:
             redis_cli.setbit(rKey, offset, 1)
             logging.debug('Save auid in redis by setbit %s %d 1' % (rKey, offset)) 

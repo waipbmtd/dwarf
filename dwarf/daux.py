@@ -60,7 +60,8 @@ class dauxBase(object):
 
 class AUstat(dauxBase):
     
-    def __init__(self, baseday=None, cache_cli=None, filters=None):
+    def __init__(self, baseday=None, cache_cli=None,
+      cache=True, filters=None):
         if not cache_cli:
             raise KeyError, 'have no cache server connection'
         self.baseDay = baseday
@@ -68,6 +69,7 @@ class AUstat(dauxBase):
         self.config  = dauconfig
         self.prefixs = self._keyprefix_chain()
         self.filters = filters
+        self.is_cache = cache
 
     def _sum_result(self, rows):
         '''
@@ -78,8 +80,9 @@ class AUstat(dauxBase):
         '''
         total  = 0
         totals = 0
+        logging.info(rows)
         for item in rows:
-            # logging.info(item)
+            logging.info(item)
             if isinstance(item, long) or isinstance(item, int):
                 total += item
             elif isinstance(item, list) or isinstance(item, tuple):
@@ -90,6 +93,7 @@ class AUstat(dauxBase):
             else:
                 totals = rows
                 break
+        logging.info(totals)
         return total or totals
 
 
@@ -104,8 +108,8 @@ class AUstat(dauxBase):
                 filters = self.filters.ins_filter(_config=_config)
                 # logging.info('%s %s', prefix, filters.count())
             aus = dau.AUstat(self.baseDay, 
-                redis_cli=self.cache_cli, filters=filters,
-                config=_config)
+                redis_cli=self.cache_cli, filters=filters, 
+                cache=self.is_cache, config=_config)
             yield aus 
 
     def _call_austat(self, name, *args, **kwargs):
@@ -208,9 +212,8 @@ class AUrecord(dauxBase):
         except Exception, e:
             logging.warning('wrong userid: %s %s', type(userid), userid)
             return
-        uid = int(userid)
         pos, uid_offset = self._uid_pos_offset(uid)
-        logging.debug('%s, %s, %s', name, pos, uid_offset)
+        logging.debug('%s, %s, %s, %s', name, userid, pos,uid_offset)
         aur = self._ins_AUR[pos]
         getattr(aur, name)(userid=uid_offset, **kwargs)
 
