@@ -25,7 +25,6 @@ class dauxBase(object):
                 pres.append(config.BITMAP_BLK_PREFIX % node)
             else:
                 pres.append('{key}')
-        logging.info(len(pres))
         return pres
 
     def _define_config(self, pref):
@@ -70,6 +69,9 @@ class AUstat(dauxBase):
         self.prefixs = self._keyprefix_chain()
         self.filters = filters
         self.is_cache = cache
+        if self.filters:
+            logging.info(self.filters.operation_inner)
+            logging.info(self.filters.operation_ext)
 
     def _sum_result(self, rows):
         '''
@@ -106,7 +108,7 @@ class AUstat(dauxBase):
             filters = self.filters
             if self.filters:
                 filters = self.filters.ins_filter(_config=_config)
-                # logging.info('%s %s', prefix, filters.count())
+                logging.info('%s %s', prefix, filters.count())
             aus = dau.AUstat(self.baseDay, 
                 redis_cli=self.cache_cli, filters=filters, 
                 cache=self.is_cache, config=_config)
@@ -165,7 +167,7 @@ class Filter(dauxBase):
         ft = dau.Filter(config=_config)
         for item in self.operation_inner:
             getattr(ft, item[0])(self.cache_cli,**item[1])
-        # logging.info(ft.count())
+        logging.info('opin:%s, fc:%s',self.operation_inner, ft.count())
         return ft
 
     def ins_filter(self, _config):
@@ -176,7 +178,7 @@ class Filter(dauxBase):
         ft = self._ins_filter(_config)
         for item in self.operation_ext:
             getattr(ft, item[0])(item[1]._ins_filter(_config)) 
-        # logging.info(ft.count())
+        logging.info(ft and ft.count() or None)
         return ft
 
     def filter(self, ff):

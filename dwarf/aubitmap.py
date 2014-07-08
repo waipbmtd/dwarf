@@ -57,13 +57,13 @@ class Bitmap(bitarray):
         """
         return self.base[id]
 
-    def retained_count(self, *bitarrs):
+    def retained_count(self, bitarrs):
         """
         retained_count(bitarray,[bitarray1,...]) -> list(int, int2,...)
         计算留存量
         返回在输入的各bitarrs中的留存量列表
         """
-        return [self._and(bitarr).count() for bitarr in bitarrs]
+        return (self._and(bitarr).count() for bitarr in bitarrs)
     
     def _and(self, bitarr):
         """

@@ -43,7 +43,7 @@ class AUstat():
         self._is_cache      = cache
         self.baseBitmap     = self._make_bitmap(baseday) 
         logging.debug(time.time()-s)
-        self.newUserBitmap  = Bitmap()#self.get_newuser_bitmap(baseday)
+        self.newUserBitmap  = Bitmap()
         logging.debug(time.time()-s)
 
 
@@ -59,15 +59,11 @@ class AUstat():
             self._cache_reduce()
             self._cache_dict.update({key:value})
             logging.info('save cache: %s %s', key, value.count())
-            # logging.info(self._cache_dict.viewkeys())
-            # logging.info([(k, v.count()) for k,v in self._cache_dict.items()])
     
     def _cache_reduce(self):
-        # logging.debug("cache length: %s" , len(self._cache_dict))
         while len(self._cache_dict) > self._max_cache_lens:
             if len(self._cache_dict) > 0:
                 self._cache_dict.popitem()
-        # logging.debug("reduce cache to: %s" % len(self._cache_dict))
 
 
     def _list_day(self, fday=None, tday=None):
@@ -99,9 +95,10 @@ class AUstat():
                 logging.info('Redis get %s: %s Sec' % (dauKey, time.time()-s))
                 if bitsDau:
                     dauBitmap.frombytes(bitsDau)
-                    logging.info('Init bitmap:Count: %s: %s Sec' % (dauBitmap.count(),time.time()-s))
+                    logging.info('Init bitmap:Count: %s' % (dauBitmap.count()))
                     if self.filters:
                         dauBitmap.filter(self.filters)
+                        logging.info('Filter bitmap: f-%s b-%s' % (self.filters.count(), dauBitmap.count()))
                     self._cache(dauKey, dauBitmap)
         logging.debug('_make_bitmap Handler: %s Sec' % (time.time()-s))
         return dauBitmap
@@ -253,7 +250,7 @@ class AUstat():
         dayList = self._list_day(fday, tday)
         return zip(dayList, 
             self.baseBitmap.retained_count(
-                *[self._make_bitmap(day) for day in dayList]
+                 (self._make_bitmap(day) for day in dayList)
                 )
             )
 
@@ -264,7 +261,7 @@ class AUstat():
         dayList = self._list_day(fday,tday)
         return zip(dayList, 
             self.make_bitmap(dayList[0],'dau').retained_count(
-                *[self.make_bitmap(day, 'dau') for day in dayList]
+                 (self.make_bitmap(day, 'dau') for day in dayList)
                 )
             )
 
@@ -275,7 +272,7 @@ class AUstat():
         lMdates1 = util.month1stdate(fday, tday)
         return zip(lMdates1,
             self.make_bitmap(lMdates1[0],'mau').retained_count(
-                    *[self._make_bitmap(date, 'mau') for date in lMdates1]
+                    (self._make_bitmap(date, 'mau') for date in lMdates1)
                 )
             )
 
@@ -290,7 +287,7 @@ class AUstat():
         logging.info('self.nUB: %s', self.newUserBitmap.count())
         return zip(dayList, 
             self.newUserBitmap.retained_count(
-                *[self.make_bitmap(day) for day in dayList]
+                 (self.make_bitmap(day) for day in dayList)
                 )
             )
 
@@ -302,7 +299,7 @@ class AUstat():
         nuBitmap = self.get_newuser_bitmap(dayList[0])
         return [[dayList.pop(0),nuBitmap.count()]]+zip(dayList, 
             nuBitmap.retained_count(
-                *[self.make_bitmap(day, 'dau') for day in dayList]
+                 (self.make_bitmap(day, 'dau') for day in dayList)
                 )
             )
 
@@ -313,22 +310,22 @@ class AUstat():
         """
         lMdates1    = util.month1stdate(fday, tday)
         MnuBitmap   = self.get_newuser_bitmap(lMdates1[0], 'mau')
-        return zip(lMdates1,
+        return [[lMdates1.pop(0), MnuBitmap.count()]]+zip(lMdates1,
             MnuBitmap.retained_count(
-                *[self._make_bitmap(date, 'mau') for date in lMdates1]
+                 (self._make_bitmap(date, 'mau') for date in lMdates1)
                 )
             )
 
 
     def retained_by_daylist(self, dayList):
         return zip(dayList, self.baseBitmap.retained_count(
-                *[self._make_bitmap(day) for day in dayList]
+                (self._make_bitmap(day) for day in dayList)
             ))
 
     def retained_nu_by_daylist(self,dayList):
         return zip(dayList, 
             self.newUserBitmap.retained_count(
-                *[self._make_bitmap(day) for day in dayList]
+                 (self._make_bitmap(day) for day in dayList)
                 )
             )
 
@@ -381,7 +378,7 @@ class Filter(Bitmap):
         fKey  = fKey_format.format(**{filtername:filterclass})
         # logging.info(fKey)
         fBits = redis_cli.get(fKey)
-        fBm   = Bitmap()
+        fBm   = Bitmap(1)
         if fBits:
             fBm.frombytes(fBits)
         # logging.debug("fBm count: %s", fBm.count()) 
