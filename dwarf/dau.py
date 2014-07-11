@@ -51,14 +51,14 @@ class AUstat():
         logging.debug('get from cache: %s', key)
         if self._cache_dict.has_key(key):
             cache = self._cache_dict.get(key)
-            logging.info('Get cache: %s %s', key, cache.count())
+            logging.debug('Get cache: %s %s', key, cache.count())
             return cache
 
     def _cache(self, key, value):
         if self._is_cache:
             self._cache_reduce()
             self._cache_dict.update({key:value})
-            logging.info('save cache: %s %s', key, value.count())
+            logging.debug('save cache: %s %s', key, value.count())
     
     def _cache_reduce(self):
         while len(self._cache_dict) > self._max_cache_lens:
@@ -92,13 +92,12 @@ class AUstat():
             dauBitmap = self._get_cache(dauKey) or dauBitmap
             if not dauBitmap:
                 bitsDau  = self.REDIS.get(dauKey)
-                logging.info('Redis get %s: %s Sec' % (dauKey, time.time()-s))
                 if bitsDau:
                     dauBitmap.frombytes(bitsDau)
-                    logging.info('Init bitmap:Count: %s' % (dauBitmap.count()))
+                    logging.debug('Init bitmap:Count: %s' % (dauBitmap.count()))
                     if self.filters:
                         dauBitmap.filter(self.filters)
-                        logging.info('Filter bitmap: f-%s b-%s' % (self.filters.count(), dauBitmap.count()))
+                        # logging.info('Filter bitmap: f-%s b-%s' % (self.filters.count(), dauBitmap.count()))
                     self._cache(dauKey, dauBitmap)
         logging.debug('_make_bitmap Handler: %s Sec' % (time.time()-s))
         return dauBitmap
@@ -139,7 +138,6 @@ class AUstat():
             dauBitmap = self._get_cache(hKey) or dauBitmap
             if not dauBitmap:
                 offsets = self.REDIS.hget(*hKey)
-                logging.info(offsets)
                 if not offsets:
                     return dauBitmap
                 offsets = int(offsets)
@@ -284,7 +282,7 @@ class AUstat():
         dayList = self._list_day(fday, tday)
         if not self.newUserBitmap:
             self.newUserBitmap = self.get_newuser_bitmap(self.baseDay)
-        logging.info('self.nUB: %s', self.newUserBitmap.count())
+        # logging.info('self.nUB: %s', self.newUserBitmap.count())
         return zip(dayList, 
             self.newUserBitmap.retained_count(
                  (self.make_bitmap(day) for day in dayList)
@@ -309,7 +307,8 @@ class AUstat():
         Monthly newuser retained count from fday's month to tday's month
         """
         lMdates1    = util.month1stdate(fday, tday)
-        MnuBitmap   = self.get_newuser_bitmap(lMdates1[0], 'mau')
+        MnuBitmap   = self.get_newuser_bitmap(lMdates1[0], 'mnu')
+        # logging.info('Newusers count: %s', MnuBitmap.count())
         return [[lMdates1.pop(0), MnuBitmap.count()]]+zip(lMdates1,
             MnuBitmap.retained_count(
                  (self._make_bitmap(date, 'mau') for date in lMdates1)
@@ -376,12 +375,10 @@ class Filter(Bitmap):
             raise ValueError, "Can not find the key \'%s\' in self.config.filter_keys_conf" % k
         logging.debug('%s, %s, %s',fKey_format,filtername,filterclass) 
         fKey  = fKey_format.format(**{filtername:filterclass})
-        # logging.info(fKey)
         fBits = redis_cli.get(fKey)
         fBm   = Bitmap(1)
         if fBits:
             fBm.frombytes(fBits)
-        # logging.debug("fBm count: %s", fBm.count()) 
         return fBm
 
 

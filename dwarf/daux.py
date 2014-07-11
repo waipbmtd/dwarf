@@ -70,8 +70,8 @@ class AUstat(dauxBase):
         self.filters = filters
         self.is_cache = cache
         if self.filters:
-            logging.info(self.filters.operation_inner)
-            logging.info(self.filters.operation_ext)
+            logging.debug(self.filters.operation_inner)
+            logging.debug(self.filters.operation_ext)
 
     def _sum_result(self, rows):
         '''
@@ -82,9 +82,7 @@ class AUstat(dauxBase):
         '''
         total  = 0
         totals = 0
-        logging.info(rows)
         for item in rows:
-            logging.info(item)
             if isinstance(item, long) or isinstance(item, int):
                 total += item
             elif isinstance(item, list) or isinstance(item, tuple):
@@ -95,7 +93,7 @@ class AUstat(dauxBase):
             else:
                 totals = rows
                 break
-        logging.info(totals)
+        logging.debug(totals)
         return total or totals
 
 
@@ -108,7 +106,7 @@ class AUstat(dauxBase):
             filters = self.filters
             if self.filters:
                 filters = self.filters.ins_filter(_config=_config)
-                logging.info('%s %s', prefix, filters.count())
+                logging.debug('%s %s', prefix, filters.count())
             aus = dau.AUstat(self.baseDay, 
                 redis_cli=self.cache_cli, filters=filters, 
                 cache=self.is_cache, config=_config)
@@ -167,7 +165,7 @@ class Filter(dauxBase):
         ft = dau.Filter(config=_config)
         for item in self.operation_inner:
             getattr(ft, item[0])(self.cache_cli,**item[1])
-        logging.info('opin:%s, fc:%s',self.operation_inner, ft.count())
+        logging.debug('opin:%s, fc:%s',self.operation_inner, ft.count())
         return ft
 
     def ins_filter(self, _config):
@@ -178,7 +176,7 @@ class Filter(dauxBase):
         ft = self._ins_filter(_config)
         for item in self.operation_ext:
             getattr(ft, item[0])(item[1]._ins_filter(_config)) 
-        logging.info(ft and ft.count() or None)
+        logging.debug(ft and ft.count() or None)
         return ft
 
     def filter(self, ff):
