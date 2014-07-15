@@ -4,7 +4,6 @@
 #by Camelsky 2012/02/19
 
 import os
-import subprocess
 import re
 import tornado
 import time
@@ -19,6 +18,7 @@ except:
     exit(1)
 import dauconfig
 import dwarf.dau
+import dwarf.daux
 import logging
 
 config = dauconfig
@@ -55,7 +55,7 @@ def get_redis_client(pipe=False):
 
 def markActiveUserid(date, userid, redis_cli):
     # redis_cli = get_redis_client()
-    auRecord = dwarf.dau.AUrecord(redis_cli)
+    auRecord = dwarf.daux.AUrecord(redis_cli)
     if auRecord.mapActiveUserid(date,userid):
         print date, userid
 
@@ -67,13 +67,20 @@ def scanLogFile(date):
         f = gzip.open(filename, 'rb')
     else:
         f = open(filename, 'r')
+    uids  = []
+    count = 0
     while 1:
         line = f.readline()
         if line:
             regmatch = re.search('from=[\'|"]([0-9]+)[\'|"]', line)
             if regmatch:
-                yield regmatch.group(1)
+                uids.append(regmatch.group(1))
+                count += 1
+                if count & 0xFFFF == 0:
+                    yield uids
+                    uids = []
         else:
+            yield uids
             f.close()
             break
 
@@ -104,18 +111,14 @@ def doScan(from_date, to_date, port='9022'):
     print from_date, to_date
     days        = (to_date-from_date).days+1
     dateList    = [from_date+timedelta(v) for v in range(days)] 
-    redis_cli   = get_redis_client()
+    redis_cli   = get_redis_client(True)
+    auRecord = dwarf.daux.AUrecord(redis_cli)
     for date in dateList:
         sDate = date.strftime(config.DATE_FORMAT)
         print 'scan', sDate
         s = time.time()
-        for line in set(scanLogFile(sDate)):
-            markActiveUserid(date, line, redis_cli)
-        # bitarr = bitarray(1*1000*10000)
-        # for userid in scanLogFile(sDate):
-        #     bitarr = genMapbytes(bitarr, userid)
-        # auRecord = dwarf.dau.AUrecord(redis_cli)
-        # auRecord.mapActiveUseridbyByte(date, bitarr.tobytes())
+        for uids in scanLogFile(sDate):
+            [auRecord.mapActiveUserid(date,uid) for uid in set(uids)]
         e = time.time()
         print 'Elapsed:', e-s,'sec'
 

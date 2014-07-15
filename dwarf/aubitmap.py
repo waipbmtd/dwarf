@@ -41,6 +41,15 @@ class Bitmap(bitarray):
             self.base &= b
         return self
 
+    def anti(self, *bitarrs):
+        """
+        反向筛选 - self.base 和 bitarrs的取反 与运算 
+        """
+        for b in bitarrs:
+            b = self._align_base(b)
+            self.base &= ~b 
+        return self
+
     def has_id(self, id):
         """
         bas_id(int) -> bool
@@ -48,13 +57,13 @@ class Bitmap(bitarray):
         """
         return self.base[id]
 
-    def retained_count(self, *bitarrs):
+    def retained_count(self, bitarrs):
         """
         retained_count(bitarray,[bitarray1,...]) -> list(int, int2,...)
         计算留存量
         返回在输入的各bitarrs中的留存量列表
         """
-        return [self._and(bitarr).count() for bitarr in bitarrs]
+        return (self._and(bitarr).count() for bitarr in bitarrs)
     
     def _and(self, bitarr):
         """

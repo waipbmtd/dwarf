@@ -16,7 +16,9 @@ from tornado.options import options, define
 from datetime import date, datetime, timedelta
 import time
 import dauconfig
-import dwarf.dau
+# import dwarf.dau
+import dwarf.daux
+from dwarf.daux import AUrecord
 from dwarf.aubitmap import Bitmap
 import util
 
@@ -70,7 +72,7 @@ def getNewUserid(date, mysql_conn):
     conn = mysql_conn
     if not mysql_conn:
         conn = get_mysql()
-    logging.debug(sql % date) 
+    logging.info(sql % date) 
     ret = conn.get(sql, date)
     if ret:
         uid = ret['id']
@@ -78,12 +80,20 @@ def getNewUserid(date, mysql_conn):
     else:
         return 0
 
+def getAllNewUserid(from_date, to_date, mysql_conn):
+    to_date = to_date+timedelta(1)
+    sql = "select date(create_time) as date,id from user where create_time >= %s and create_time < %s"
+    logging.info(sql % (from_date, to_date))
+    ret = mysql_conn.iter(sql, from_date, to_date)
+    return ret
+
+
 def getGenderUserid(from_date=None, mysql_conn=None):
     conn = mysql_conn
     if not mysql_conn:
         conn = get_mysql()
     sql     = "select id , gender from user %(where)s "
-    sWhere   = ""
+    sWhere  = ""
     args    = []
     if from_date:
         sWhere += "create_time >= %s"
@@ -161,8 +171,12 @@ def idList(dates, mysql_conn):
 
 
 def mapNewUserid(dates, userids):
-    auRecord = dwarf.dau.AUrecord(get_redis_client())
+    auRecord = AUrecord(get_redis_client())
     map(auRecord.saveNewUserIndex, dates, userids)
+
+def setNewUserid(date, userid):
+    ar = AUrecord(get_redis_client())
+    ar.mapNewUser(date, userid)
 
 def mapMau(fdate, tdate):
     auR     = dwarf.dau.AUrecord(get_redis_client())
@@ -182,7 +196,7 @@ def doMap(do, from_date, to_date, auRecord, mysql_conn):
         'version': lambda:[auRecord.mapFilter('version', v.client_version, v.user_id) for v in getVersionUserid(from_date, mysql_conn)],
         'uainfo': lambda:[(auRecord.mapFilter('platform', v['platform'], v['user_id']),
             auRecord.mapFilter('channel', v['channel'], v['user_id'])) for v in getUAuser(from_date, mysql_conn)],
-        # 'mau': lambda: mapMau(from_date, to_date),
+        'nuid': lambda: [auRecord.mapNewUser(v['date'], v['id']) for v in getAllNewUserid(from_date,to_date, mysql_conn)],
     }
     if do == 'all':
         return [v() for v in domap.values()]
@@ -193,7 +207,7 @@ def doMap(do, from_date, to_date, auRecord, mysql_conn):
 def run():
     define("f", default=None)
     define("t", default=None)
-    define("do", help="what need to do? \'nu\'(new user) or \'all\'",default='nu')
+    define("do", help="what need to do? \'nu\'(new user) or \'all\'",default='nuid')
     tornado.options.parse_command_line()
 
     #计算时间范围
@@ -217,14 +231,14 @@ def run():
     
     mysql_conn = get_mysql()
     if options.do == 'nu':
-        auRecord = dwarf.dau.AUrecord(get_redis_client())
+        auRecord = dwarf.dau.AUrecord(get_redis_client(True))
         dates = DateList(from_date, to_date)
         users = idList(dates, mysql_conn)
         map(auRecord.saveNewUserIndex, dates, users)
     elif options.do == 'mau':
         mapMau(from_date, to_date)
     else:
-        auRecord = dwarf.dau.AUrecord(get_redis_client(pipe=True))
+        auRecord = dwarf.daux.AUrecord(get_redis_client(pipe=True))
         doMap(options.do, from_date, to_date, auRecord, mysql_conn)
 
 
