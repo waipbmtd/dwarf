@@ -118,7 +118,7 @@ def doScan(from_date, to_date, port='9022'):
         print 'scan', sDate
         s = time.time()
         for uids in scanLogFile(sDate):
-            [auRecord.mapActiveUserid(date,uid) for uid in uids]
+            [auRecord.mapActiveUserid(date,uid) for uid in set(uids)]
         e = time.time()
         print 'Elapsed:', e-s,'sec'
 
