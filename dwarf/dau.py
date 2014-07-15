@@ -94,7 +94,7 @@ class AUstat():
                 bitsDau  = self.REDIS.get(dauKey)
                 if bitsDau:
                     dauBitmap.frombytes(bitsDau)
-                    logging.debug('Init bitmap:Count: %s' % (dauBitmap.count()))
+                    # logging.debug('Init bitmap:Count: %s' % (dauBitmap.count()))
                     if self.filters:
                         dauBitmap.filter(self.filters)
                         # logging.info('Filter bitmap: f-%s b-%s' % (self.filters.count(), dauBitmap.count()))
