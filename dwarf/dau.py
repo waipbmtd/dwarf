@@ -465,7 +465,7 @@ class AUrecord():
         """
         Save userid map in filter
         """
-        logging.info('%s, %s, %s' % (filtername, filterclass, userid))
+        # logging.info('%s, %s, %s' % (filtername, filterclass, userid))
         redis_cli = self.get_redis_cli()
         f_conf    = self.config.filter_keys_conf
         rKey      = f_conf[filtername].format(**{filtername:filterclass})
