@@ -221,6 +221,8 @@ def _awaked_devices(fts, tts):
         yield channel,did
 
 def _get_did_userid(did, conn):
+    if not did:
+        return None
     sql = "select user_id from device_record where device_id = %s order by id desc limit 1"
     logging.debug(sql, did)
     ret = conn.get(sql, did)
@@ -237,7 +239,8 @@ def doMap(do, from_date, to_date, auRecord, mysql_conn):
         'uainfo': lambda:[(auRecord.mapFilter('platform', v['platform'], v['user_id']),
             auRecord.mapFilter('channel', v['channel'], v['user_id'])) for v in getUAuser(from_date, mysql_conn)],
         'nuid': lambda: [auRecord.mapNewUser(v['date'], v['id']) for v in getAllNewUserid(from_date,to_date, mysql_conn)],
-        'promo': lambda: [auRecord.mapFilter('channel', channel, uid)
+        'promo': lambda: [ #auRecord.mapFilter('channel', channel, uid)
+            (channel, uid)
             for channel, uid in getPromoChannel(from_date, to_date)],
     }
     if do == 'all':
