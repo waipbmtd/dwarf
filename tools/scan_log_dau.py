@@ -20,6 +20,7 @@ import dauconfig
 import dwarf.dau
 import dwarf.daux
 import logging
+import db_config
 
 config = dauconfig
 
@@ -42,7 +43,7 @@ class redisPipeline:
             self._save()
 
 def get_redis_client(pipe=False):
-    conf = config.redis_conf
+    conf = db_config.redis_conf
     try:
         if pipe:
             conn = redisPipeline(conf)
