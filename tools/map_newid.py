@@ -21,6 +21,7 @@ import dwarf.daux
 from dwarf.daux import AUrecord
 from dwarf.aubitmap import Bitmap
 import util
+import db_config
 
 config = dauconfig
 
@@ -45,7 +46,7 @@ class redisPipeline:
 
 
 def get_mysql():
-    conf = config.mysql_conf
+    conf = db_config.mysql_conf
     conn = database.Connection(
         host="%s:%s" % (conf['host'], conf['port']), 
         database=conf['db'], 
@@ -55,7 +56,7 @@ def get_mysql():
     return conn
 
 def get_redis_client(pipe=False):
-    conf = config.redis_conf
+    conf = db_config.redis_conf
     try:
         if pipe:
             conn = redisPipeline(conf)
@@ -66,6 +67,13 @@ def get_redis_client(pipe=False):
         print "redis connection Error!", e
         raise e
 
+def get_promo_redis():
+    conf = db_config.redis_promo_conf
+    try:
+        conn = redis.Redis(**conf)
+        return conn
+    except Exception, e:
+        raise e
 
 def getNewUserid(date, mysql_conn):
     sql  = "select id from user where create_time >= %s order by id limit 1"
@@ -187,6 +195,38 @@ def mapMau(fdate, tdate):
         bitMau.merge(*map(auS.make_bitmap, row))
         auR.mapMaufromByte(row[0], bitMau.tobytes())
 
+def getPromoChannel(fdate, tdate):
+    fts = time.mktime(fdate.timetuple())
+    tts = time.mktime(tdate.timetuple())
+    conn = get_mysql()
+    for channel, did in _awaked_devices(fts, tts):
+        user_id = _get_did_userid(did, conn)
+        if user_id:
+            yield channel, user_id
+
+def _get_awaked_udids(fts,tts):
+    key = 'zAwakedD'
+    re  = get_promo_redis()
+    udids = re.zrangebyscore(key, fts, tts)
+    if udids:
+        return udids
+    return []
+
+def _awaked_devices(fts, tts):
+    key = 'hAwakeD:{}'
+    udids = _get_awaked_udids(fts, tts)
+    re = get_promo_redis()
+    for udid in udids:
+        channel,did = re.hmget(key.format(udid), 'channel', 'did')
+        yield channel,did
+
+def _get_did_userid(did, conn):
+    sql = "select user_id from device_record where device_id = %s order by id desc limit 1"
+    logging.debug(sql, did)
+    ret = conn.get(sql, did)
+    if ret:
+        return ret.get('user_id')
+    return None
 
 
 def doMap(do, from_date, to_date, auRecord, mysql_conn):
@@ -197,6 +237,8 @@ def doMap(do, from_date, to_date, auRecord, mysql_conn):
         'uainfo': lambda:[(auRecord.mapFilter('platform', v['platform'], v['user_id']),
             auRecord.mapFilter('channel', v['channel'], v['user_id'])) for v in getUAuser(from_date, mysql_conn)],
         'nuid': lambda: [auRecord.mapNewUser(v['date'], v['id']) for v in getAllNewUserid(from_date,to_date, mysql_conn)],
+        'promo': lambda: [auRecord.mapFilter('channel', channel, uid)
+            for channel, uid in getPromoChannel(from_date, to_date)],
     }
     if do == 'all':
         return [v() for v in domap.values()]
