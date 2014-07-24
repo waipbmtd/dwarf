@@ -202,6 +202,7 @@ def getPromoChannel(fdate, tdate):
     for channel, did in _awaked_devices(fts, tts):
         user_id = _get_did_userid(did, conn)
         if user_id:
+            logging.debug('%s-%s', channel, user_id)        
             yield channel, user_id
 
 def _get_awaked_udids(fts,tts):
@@ -239,8 +240,7 @@ def doMap(do, from_date, to_date, auRecord, mysql_conn):
         'uainfo': lambda:[(auRecord.mapFilter('platform', v['platform'], v['user_id']),
             auRecord.mapFilter('channel', v['channel'], v['user_id'])) for v in getUAuser(from_date, mysql_conn)],
         'nuid': lambda: [auRecord.mapNewUser(v['date'], v['id']) for v in getAllNewUserid(from_date,to_date, mysql_conn)],
-        'promo': lambda: [ #auRecord.mapFilter('channel', channel, uid)
-            (channel, uid)
+        'promo': lambda: [ auRecord.mapFilter('channel', channel, uid)
             for channel, uid in getPromoChannel(from_date, to_date)],
     }
     if do == 'all':
