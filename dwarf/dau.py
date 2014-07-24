@@ -376,9 +376,11 @@ class Filter(Bitmap):
         logging.debug('%s, %s, %s',fKey_format,filtername,filterclass) 
         fKey  = fKey_format.format(**{filtername:filterclass})
         fBits = redis_cli.get(fKey)
-        fBm   = Bitmap(1)
+        fBm   = Bitmap()
         if fBits:
             fBm.frombytes(fBits)
+        else:
+            fBm   = Bitmap('0')
         return fBm
 
 
