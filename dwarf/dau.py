@@ -175,7 +175,7 @@ class AUstat():
     def get_mnu(self, date=None):
         if not date:
             date = self.baseDay
-        return self.get_newuser_bitmap(date, 'mau').count()
+        return self.get_newuser_bitmap(date, 'mnu').count()
 
     def list_dau(self, fday=None, tday=None):
         """
