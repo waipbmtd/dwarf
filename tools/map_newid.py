@@ -11,7 +11,11 @@ except:
     print 'Need python modules \'redis\' and \'MySQLdb\' but no found! '
     exit(1)
 import tornado
-from tornado import database
+try:
+    import torndb
+    database = torndb
+except:
+    from tornado import database
 from tornado.options import options, define
 from datetime import date, datetime, timedelta
 import time

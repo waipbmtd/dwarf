@@ -1,5 +1,6 @@
 redis
 bitarray
-tornado==2.4
+tornado
+torndb
 MySQL-python
 -e ./
