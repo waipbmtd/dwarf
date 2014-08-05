@@ -14,7 +14,7 @@ from tornado.options import options, define
 import dauconfig
 import dwarf
 import dwarf.dau
-
+import dwarf.daux
 
 config    = dauconfig
 class austat():
@@ -124,9 +124,9 @@ class austat():
 def do(value, As, fday, tday):
     doing = {
         'dau': lambda:As.au.get_dau(),
-        'dnu': lambda:As.au.get_dnu(),
+        'dnu': lambda:As.au.get_dnu(As.au.baseDay),
         'mau': lambda:As.au.get_mau(),
-        'mnu': lambda:As.au.get_mnu(),
+        'mnu': lambda:As.au.get_mnu(As.au.baseDay),
         'ldau': lambda:As.dau_list(fday, tday),
         'ldnu': lambda:As.dnu_list(fday,tday),
         'lmau': lambda:As.au.list_mau(fday, tday),
