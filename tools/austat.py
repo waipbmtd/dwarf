@@ -154,7 +154,7 @@ def run():
     bday = options.day and datetime.strptime(options.day, config.DATE_FORMAT) or None
     fday = options.f and datetime.strptime(options.f, config.DATE_FORMAT) or None
     tday = options.t and datetime.strptime(options.t, config.DATE_FORMAT) or None
-    lfilter = options.filter and str.split(options.filter, '#') or []
+    lfilter = options.filter and str.split(options.filter, ';') or []
     filters = None
     if lfilter:
         redis_cli = redis.Redis(**config.redis_conf)
