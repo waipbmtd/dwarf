@@ -93,16 +93,18 @@ class austat():
         ret = [['firstdate']]
         ret[0].extend(["+%s day" % (v-from_date).days for v in lDate])
         while lDate:
-            self.au.baseDay = lDate.pop(0)
-            self.au.newUserBitmap = self.au.get_newuser_bitmap(self.au.baseDay)
-            row = [self.au.baseDay]
-            row.append(self.au.newUserBitmap.count())
+            # self.au.baseDay = lDate.pop(0)
+            # self.au.newUserBitmap = self.au.get_newuser_bitmap(self.au.baseDay)
+            # row = [self.au.baseDay]
+            # row.append(self.au.newUserBitmap.count())
+            row = [lDate[0]]
             if lDate:
                 fday    = lDate[0]
                 tday    = lDate[-1]
-                lret    = self.au.get_retained_nu(fday, tday)
+                lret    = self.au.daily_nu_retained_list(fday, tday)
                 row.extend([v[1] for v in lret])
             ret.append(row)
+            lDate.pop(0)
         return ret
 
     def list_dau_30mu(self, from_date, to_date):
@@ -156,16 +158,13 @@ def run():
     filters = None
     if lfilter:
         redis_cli = redis.Redis(**config.redis_conf)
-        filters = dwarf.daux.Filter(redis_cli)
-        c = 0 
         for v in lfilter:           
             name, vals = v.split('=')
             vals = vals.split(',')
-            ff = dwarf.daux.Filter(redis_cli)
+            ff = dwarf.daux.Filter(cache_cli=redis_cli)
             for val in vals:
                 ff.expand( **{name:val})
-            filters = c and filters.filter(ff) or ff
-            c += 1
+            filters = filters and filters.filter(ff) or ff
 
     print 'BaseDay,',options.day or ''
     print 'TimeRange,', options.f or '', '~', options.t or ''

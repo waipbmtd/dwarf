@@ -69,6 +69,7 @@ class AUstat(dauxBase):
         self.prefixs = self._keyprefix_chain()
         self.filters = filters
         self.is_cache = cache
+        self._dau_ins = {}
         if self.filters:
             logging.debug(self.filters.operation_inner)
             logging.debug(self.filters.operation_ext)
@@ -102,14 +103,18 @@ class AUstat(dauxBase):
         按区间配置实例化 dau.AUstat 并返回
         '''
         for prefix in self.prefixs:
-            _config = self._define_config(prefix)
-            filters = self.filters
-            if self.filters:
-                filters = self.filters.ins_filter(_config=_config)
-                logging.debug('%s %s', prefix, filters.count())
-            aus = dau.AUstat(self.baseDay, 
-                redis_cli=self.cache_cli, filters=filters, 
-                cache=self.is_cache, config=_config)
+            if self._dau_ins.get(prefix, None):
+                aus = self._dau_ins.get(prefix)
+            else:
+                _config = self._define_config(prefix)
+                filters = self.filters
+                if self.filters:
+                    filters = self.filters.ins_filter(_config=_config)
+                    logging.debug('%s %s', prefix, filters.count())
+                aus = dau.AUstat(self.baseDay, 
+                    redis_cli=self.cache_cli, filters=filters, 
+                    cache=self.is_cache, config=_config)
+                self._dau_ins[prefix] = aus
             yield aus 
 
     def _call_austat(self, name, *args, **kwargs):

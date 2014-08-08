@@ -21,13 +21,64 @@ import util
 def stdoffset(cls):
     return cls.config.STD_OFFSET
 
+
+class _Cache(object):
+    __instance = None
+    _cache_dict = {}
+    _cache_now  = None
+    _cache_alive = 60*5
+    _max_cache_lens = 1024
+
+    def __new__(cls):
+        if cls.__instance is None:
+            cls.__instance = super(_Cache, cls).__new__(cls)
+        return cls.__instance
+
+    def __init__(self):
+        self._cache_dict 
+
+    def get_cache(self, key):
+        if self._cache_dict.has_key(key):
+            cache, sttl = self._cache_dict.get(key)
+            if time.time() - sttl > 0:
+                self._kill_cache(key)
+                return None
+            logging.debug('got cache: %s %s', key, cache.count())
+            self._cut_cache()
+            return cache
+        return None
+    
+    def _kill_cache(self, key):
+        try:
+            self._cache_dict.__delitem__(key)
+        except:
+            pass
+
+    def set(self, key, data, ttl=None):
+        if ttl is None:
+            ttl = self._cache_alive
+        self._set_cache(key, data, ttl)
+
+    def _set_cache(self, key, data, ttl=None):
+        if ttl is None:
+            ttl = self._cache_alive
+        expireat = time.time() + ttl
+        val = (data, expireat)
+        self._cache_dict[key] = val
+        logging.debug('save cache:%s', key)
+
+    def _cut_cache(self):
+        while len(self._cache_dict) > self._max_cache_lens:
+            if len(self._cache_dict) > 0:
+                self._cache_dict.popitem()        
+
 class AUstat():
 
 
     def __init__(self, baseday=None, redis_cli=None,
      filters=None, cache=True, config=None):
         s = time.time()
-        logging.debug('init austat: baseday %s, config: %s', baseday, config)
+        logging.info('init austat: baseday %s, config: %s', baseday, config and config.dau_keys_conf or '')
         if not redis_cli:
             raise KeyError,'Redis connection not found'
         if not config:
@@ -35,8 +86,9 @@ class AUstat():
         else:
             self.config = config
 
-        self._cache_dict          = {}
-        self._max_cache_lens = 1024
+        self.cache = _Cache()
+        # self._cache_dict          = {}
+        # self._max_cache_lens = 1024
         self.REDIS          = redis_cli
         self.baseDay        = baseday
         self.filters        = filters
@@ -47,6 +99,7 @@ class AUstat():
 
     def _get_cache(self, key):
         logging.debug('get from cache: %s', key)
+        return self.cache.get_cache(key)
         if self._cache_dict.has_key(key):
             cache = self._cache_dict.get(key)
             logging.debug('Get cache: %s %s', key, cache.count())
@@ -54,11 +107,13 @@ class AUstat():
 
     def _cache(self, key, value):
         if self._is_cache:
+            return self.cache._set_cache(key, value)
             self._cache_reduce()
             self._cache_dict.update({key:value})
             logging.debug('save cache: %s %s', key, value.count())
     
     def _cache_reduce(self):
+        return 
         while len(self._cache_dict) > self._max_cache_lens:
             if len(self._cache_dict) > 0:
                 self._cache_dict.popitem()
@@ -87,8 +142,10 @@ class AUstat():
                 dauKey   = DAU_KEY.format(month=day.strftime(self.config.MONTH_FORMAT))
             else:
                 dauKey   = DAU_KEY.format(date=day.strftime(self.config.DATE_FORMAT))
-            dauBitmap = self._get_cache(dauKey) or dauBitmap
-            if not dauBitmap:
+            cache_data = self._get_cache(dauKey)
+            # dauBitmap = self._get_cache(dauKey) or dauBitmap            
+            if cache_data is None:
+                dauBitmap = Bitmap()
                 bitsDau  = self.REDIS.get(dauKey)
                 if bitsDau:
                     dauBitmap.frombytes(bitsDau)
@@ -96,8 +153,10 @@ class AUstat():
                     if self.filters:
                         dauBitmap.filter(self.filters)
                         # logging.info('Filter bitmap: f-%s b-%s' % (self.filters.count(), dauBitmap.count()))
-                    self._cache(dauKey, dauBitmap)
-        logging.debug('_make_bitmap Handler: %s Sec' % (time.time()-s))
+                self._cache(dauKey, dauBitmap)
+            else:
+                dauBitmap = cache_data
+        logging.debug('_make_bitmap Handler:%s %s - %s Sec' % (day,Type,time.time()-s))
         return dauBitmap
 
     def make_bitmap(self, day=None, Type='dau'):
@@ -134,7 +193,8 @@ class AUstat():
             hKey = (self.config.dau_keys_conf['newuser'], 
                     day.strftime(self.config.DATE_FORMAT))
             dauBitmap = self._get_cache(hKey) or dauBitmap
-            if not dauBitmap:
+            cached = self._get_cache(hKey)
+            if cached is None:
                 offsets = self.REDIS.hget(*hKey)
                 if not offsets:
                     return dauBitmap
@@ -145,7 +205,9 @@ class AUstat():
                 dauBitmap = Bitmap(bmp) # 生成新的实例，避免被篡改
                 dauBitmap[:offsets] = False
                 self._cache(hKey, dauBitmap)
-                logging.debug('get nu bitmap: %s Sec' % (time.time()-s))
+            else:
+                dauBitmap = cached
+        logging.debug('get nu bitmap: %s Sec' % (time.time()-s))
         return dauBitmap
 
     def get_dau(self, day=None):
@@ -337,8 +399,10 @@ class Filter(Bitmap):
 
     def __init__(self, config=None, redis_cli=None):
         super(Filter, self).__init__()
+        logging.info('init Filter: config: %s', config and config.dau_keys_conf or '')        
         self.config    = config or dauconfig
         self.redis_cli = redis_cli
+        self._cache = _Cache()
 
     def expand(self, redis_cli=None, **kwargs):
         """
@@ -347,7 +411,7 @@ class Filter(Bitmap):
         """
         redis_cli = redis_cli or self.redis_cli
         for k,v in kwargs.items():
-            fBm = self._get_filtet_bitmap(redis_cli, k, v)
+            fBm = self._get_filter_bitmap(redis_cli, k, v)
             self.merge(fBm)
         return self
 
@@ -358,14 +422,16 @@ class Filter(Bitmap):
         """
         redis_cli = redis_cli or self.redis_cli
         for k,v in kwargs.items():
-            fBm = self._get_filtet_bitmap(redis_cli, k, v)
+            fBm = self._get_filter_bitmap(redis_cli, k, v)
             self.filter(fBm)
         return self
 
-    def _get_filtet_bitmap(self, redis_cli, filtername, filterclass):
+    def _get_filter_bitmap(self, redis_cli, filtername, filterclass):
         """
         由数据源获取筛选条件 BitMap
         """
+        logging.debug(self.redis_cli)
+        redis_cli = redis_cli or self.redis_cli
         if not isinstance(redis_cli, redis.client.Redis):
             raise TypeError, "Need redis connection but not found"
         fKey_format = self.config.filter_keys_conf.get(filtername)
@@ -373,12 +439,17 @@ class Filter(Bitmap):
             raise ValueError, "Can not find the key \'%s\' in self.config.filter_keys_conf" % k
         logging.debug('%s, %s, %s',fKey_format,filtername,filterclass) 
         fKey  = fKey_format.format(**{filtername:filterclass})
-        fBits = redis_cli.get(fKey)
-        fBm   = Bitmap()
-        if fBits:
-            fBm.frombytes(fBits)
+        cached =  self._cache.get_cache(fKey)
+        if cached is None:
+            fBits = redis_cli.get(fKey)
+            fBm   = Bitmap()
+            if fBits:
+                fBm.frombytes(fBits)
+            else:
+                fBm   = Bitmap('0')
+            self._cache.set(fKey, fBm)
         else:
-            fBm   = Bitmap('0')
+            fBm = cached
         return fBm
 
 

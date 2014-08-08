@@ -28,6 +28,8 @@ class Bitmap(bitarray):
         merge(bitarray1,[bitarray2,bitarray3....])
         """
         for b in bitarrs:
+            if b.length() == 0:
+                continue
             b = self._align_base(b)
             self.base |= b
         return self
@@ -38,7 +40,12 @@ class Bitmap(bitarray):
         过滤 base bitarr - 与运算
         返回过滤后的对象
         """
+        if self.length() == 0:
+            return self
         for b in bitarrs:
+            if b.length() == 0:
+                self.base = self.base[:0]
+                return self
             b = self._align_base(b)
             self.base &= b
         return self
@@ -78,8 +85,10 @@ class Bitmap(bitarray):
         """
         计算base bitarray 按位与 bitarr 后的count 值
         """
+        if self.base.length()==0 or bitarr.length==0:
+            return 0
         bitarr = self._align_base(bitarr)
-        return (self.base & bitarr).count()
+        return (self.base.__and__(bitarr)).count()
     
     def _align_base(self, b):
         """
