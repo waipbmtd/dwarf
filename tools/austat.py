@@ -24,7 +24,7 @@ class austat():
         self.au        = self._instance_au(baseDay)
 
     def _instance_au(self, baseDay=None):
-        return dwarf.dau.AUstat(baseDay, self.redis_cli, filters=self.filters, cache=True)
+        return dwarf.daux.AUstat(baseDay, self.redis_cli, filters=self.filters, cache=True)
 
     def _get_redis_client(self):
         "instance redis connection "
@@ -53,20 +53,18 @@ class austat():
         """
         活跃用户留存列表
         """
-        lDate = self.au._list_day(fday=from_date, tday=to_date)
+        lDate = dwarf.util.list_day(fday=from_date, tday=to_date)
         ret = [['firstdate']]
         ret[0].extend(["+%s day" % (v-from_date).days for v in lDate])
         while lDate:
-            baseDay = lDate.pop(0)
-            self.au.baseBitmap = self.au._make_bitmap(baseDay)
-            row = [baseDay]
-            row.append(self.au.baseBitmap.count())
+            row = [lDate[0]]
             if lDate:
                 fday    = lDate[0]
                 tday    = lDate[-1]
-                lret    = self.au.get_retained(fday, tday)
+                lret    = self.au.daily_retained_list(fday, tday)
                 row.extend([v[1] for v in lret])
             ret.append(row)
+            lDate.pop(0)
 
         return ret
 
@@ -91,7 +89,7 @@ class austat():
         """
         新增用户留存表
         """
-        lDate = self.au._list_day(fday=from_date, tday=to_date)
+        lDate = dwarf.util.list_day(fday=from_date, tday=to_date)
         ret = [['firstdate']]
         ret[0].extend(["+%s day" % (v-from_date).days for v in lDate])
         while lDate:
@@ -158,21 +156,22 @@ def run():
     filters = None
     if lfilter:
         redis_cli = redis.Redis(**config.redis_conf)
-        filters = dwarf.dau.Filter()
+        filters = dwarf.daux.Filter(redis_cli)
         c = 0 
         for v in lfilter:           
             name, vals = v.split('=')
             vals = vals.split(',')
-            ff = dwarf.dau.Filter()
+            ff = dwarf.daux.Filter(redis_cli)
             for val in vals:
-                ff.expand(redis_cli, **{name:val})
+                ff.expand( **{name:val})
             filters = c and filters.filter(ff) or ff
             c += 1
 
     print 'BaseDay,',options.day or ''
     print 'TimeRange,', options.f or '', '~', options.t or ''
     print 'StatType,' , options.do or ''
-    print 'Filter,', lfilter,',count,',filters and filters.count() or 0
+    # print 'Filter,', lfilter,',count,',filters and filters.count() or 0, type(filters)
+    print 'Filter,', lfilter,',count,', type(filters)
     As  = austat(bday, filters)
     logging.debug(time.time()-s)
     ret = do(options.do, As, fday, tday)

@@ -13,8 +13,8 @@ from tornado.options import define, options
 try:
     import dauconfig
 except ImportError:
-    raise ImportError, ("self.Configure file 'dauself.config.py' "
-        "or module dauself.config was not found")
+    raise ImportError, ("Configure file 'dauconfig.py' "
+        "or module dauconfig was not found")
 from aubitmap import Bitmap
 import util
 
@@ -27,6 +27,7 @@ class AUstat():
     def __init__(self, baseday=None, redis_cli=None,
      filters=None, cache=True, config=None):
         s = time.time()
+        logging.debug('init austat: baseday %s, config: %s', baseday, config)
         if not redis_cli:
             raise KeyError,'Redis connection not found'
         if not config:
@@ -36,15 +37,12 @@ class AUstat():
 
         self._cache_dict          = {}
         self._max_cache_lens = 1024
-        self._is_cache       = False
         self.REDIS          = redis_cli
         self.baseDay        = baseday
         self.filters        = filters
         self._is_cache      = cache
         self.baseBitmap     = self._make_bitmap(baseday) 
-        logging.debug(time.time()-s)
         self.newUserBitmap  = Bitmap()
-        logging.debug(time.time()-s)
 
 
     def _get_cache(self, key):

@@ -3,7 +3,8 @@
 #Bitmap
 #Auth: Camel
 #email: camelsky@gmail.com
-
+import logging
+from bitarray import bitdiff
 from bitarray import bitarray
 from datetime import date, datetime, timedelta
 
@@ -17,6 +18,7 @@ class Bitmap(bitarray):
         """
         super(Bitmap, self).__init__(arg, **kwargs)
         self.base   = self
+        # self.len    = self.base.length()
     
 
     def merge(self, *bitarrs):
@@ -63,7 +65,7 @@ class Bitmap(bitarray):
         计算留存量
         返回在输入的各bitarrs中的留存量列表
         """
-        return (self._and(bitarr).count() for bitarr in bitarrs)
+        return (self._and_count(bitarr) for bitarr in bitarrs)
     
     def _and(self, bitarr):
         """
@@ -71,6 +73,13 @@ class Bitmap(bitarray):
         """
         bitarr = self._align_base(bitarr)
         return self.base & bitarr
+
+    def _and_count(self, bitarr):
+        """
+        计算base bitarray 按位与 bitarr 后的count 值
+        """
+        bitarr = self._align_base(bitarr)
+        return (self.base & bitarr).count()
     
     def _align_base(self, b):
         """
@@ -83,9 +92,9 @@ class Bitmap(bitarray):
         diffbarr    = bitarray(abs(diff))
         diffbarr.setall(False)
         if diff>0:
-            b += diffbarr
+            b.extend(diffbarr)
         elif diff<0:
-            self.base += diffbarr
+            self.base.extend(diffbarr)
         return b
 
     # def __repr__(self):

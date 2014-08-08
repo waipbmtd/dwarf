@@ -27,7 +27,8 @@ dau_keys_conf = dict(
     dau     = "sDau:{date}",
     newuser = "hNewUser",
     mau     = "sMau:{month}",
-    numap   = "sNew:{date}",
+    dnu   = "sDnu:{date}",
+    mnu   = "sMnu:{month}",
 )
 
 filter_keys_conf = dict(
