@@ -43,7 +43,7 @@ class _Cache(object):
             if time.time() - sttl > 0:
                 self._kill_cache(key)
                 return None
-            logging.debug('got cache: %s %s', key, cache.count())
+            logging.debug('got cache: %s', key)
             self._cut_cache()
             return cache
         return None
@@ -65,7 +65,7 @@ class _Cache(object):
         expireat = time.time() + ttl
         val = (data, expireat)
         self._cache_dict[key] = val
-        logging.debug('save cache:%s', key)
+        logging.debug('save cache: %s %s %s', key, ttl, data and len(data) or 'nil') 
 
     def _cut_cache(self):
         while len(self._cache_dict) > self._max_cache_lens:
@@ -102,7 +102,7 @@ class AUstat():
         return self.cache.get_cache(key)
         if self._cache_dict.has_key(key):
             cache = self._cache_dict.get(key)
-            logging.debug('Get cache: %s %s', key, cache.count())
+            logging.debug('Get cache: %s %s', key, cache.count)
             return cache
 
     def _cache(self, key, value):
@@ -142,18 +142,27 @@ class AUstat():
                 dauKey   = DAU_KEY.format(month=day.strftime(self.config.MONTH_FORMAT))
             else:
                 dauKey   = DAU_KEY.format(date=day.strftime(self.config.DATE_FORMAT))
-            cache_data = self._get_cache(dauKey)
+            # cache_data = self._get_cache(dauKey)
             # dauBitmap = self._get_cache(dauKey) or dauBitmap            
-            if cache_data is None:
+            # if cache_data is None or True: 
+            if True:
                 dauBitmap = Bitmap()
-                bitsDau  = self.REDIS.get(dauKey)
+                cached = self._get_cache(dauKey)
+                if cached:
+                    bitsDau = cached
+                    if cached is 'None':
+                        bitsDau = None
+                else:
+                    logging.debug('no cache:%s',dauKey)
+                    bitsDau  = self.REDIS.get(dauKey)
+                    self._cache(dauKey, bitsDau or 'None')
                 if bitsDau:
                     dauBitmap.frombytes(bitsDau)
                     # logging.debug('Init bitmap:Count: %s' % (dauBitmap.count()))
                     if self.filters:
                         dauBitmap.filter(self.filters)
                         # logging.info('Filter bitmap: f-%s b-%s' % (self.filters.count(), dauBitmap.count()))
-                self._cache(dauKey, dauBitmap)
+                # self._cache(dauKey, dauBitmap)
             else:
                 dauBitmap = cache_data
         logging.debug('_make_bitmap Handler:%s %s - %s Sec' % (day,Type,time.time()-s))
@@ -192,9 +201,10 @@ class AUstat():
                 day = datetime(day.year, day.month, 1)
             hKey = (self.config.dau_keys_conf['newuser'], 
                     day.strftime(self.config.DATE_FORMAT))
-            dauBitmap = self._get_cache(hKey) or dauBitmap
-            cached = self._get_cache(hKey)
-            if cached is None:
+            # dauBitmap = self._get_cache(hKey) or dauBitmap
+            # cached = self._get_cache(hKey)
+            # if cached is None or True:
+            if True:
                 offsets = self.REDIS.hget(*hKey)
                 if not offsets:
                     return dauBitmap
@@ -204,7 +214,7 @@ class AUstat():
                 s = time.time()
                 dauBitmap = Bitmap(bmp) # 生成新的实例，避免被篡改
                 dauBitmap[:offsets] = False
-                self._cache(hKey, dauBitmap)
+                # self._cache(hKey, dauBitmap)
             else:
                 dauBitmap = cached
         logging.debug('get nu bitmap: %s Sec' % (time.time()-s))
