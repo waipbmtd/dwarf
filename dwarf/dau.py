@@ -78,7 +78,7 @@ class AUstat():
     def __init__(self, baseday=None, redis_cli=None,
      filters=None, cache=True, config=None):
         s = time.time()
-        logging.info('init austat: baseday %s, config: %s', baseday, config and config.dau_keys_conf or '')
+        # logging.info('init austat: baseday %s, config: %s', baseday, config and config.dau_keys_conf or '')
         if not redis_cli:
             raise KeyError,'Redis connection not found'
         if not config:
@@ -399,7 +399,7 @@ class Filter(Bitmap):
 
     def __init__(self, config=None, redis_cli=None):
         super(Filter, self).__init__()
-        logging.info('init Filter: config: %s', config and config.dau_keys_conf or '')        
+        # logging.info('init Filter: config: %s', config and config.dau_keys_conf or '')        
         self.config    = config or dauconfig
         self.redis_cli = redis_cli
         self._cache = _Cache()
