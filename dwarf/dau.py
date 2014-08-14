@@ -1,8 +1,8 @@
-#!/usr/bin/env python
 #-*- coding:utf-8 -*-
 # get dau
 
-import sys, os
+import sys
+import os
 import redis
 import time
 import logging
@@ -100,23 +100,11 @@ class AUstat():
     def _get_cache(self, key):
         logging.debug('get from cache: %s', key)
         return self.cache.get_cache(key)
-        if self._cache_dict.has_key(key):
-            cache = self._cache_dict.get(key)
-            logging.debug('Get cache: %s %s', key, cache.count)
-            return cache
 
     def _cache(self, key, value):
         if self._is_cache:
             return self.cache._set_cache(key, value)
-            self._cache_reduce()
-            self._cache_dict.update({key:value})
-            logging.debug('save cache: %s %s', key, value.count())
     
-    def _cache_reduce(self):
-        return 
-        while len(self._cache_dict) > self._max_cache_lens:
-            if len(self._cache_dict) > 0:
-                self._cache_dict.popitem()
 
 
     def _list_day(self, fday=None, tday=None):
@@ -142,29 +130,23 @@ class AUstat():
                 dauKey   = DAU_KEY.format(month=day.strftime(self.config.MONTH_FORMAT))
             else:
                 dauKey   = DAU_KEY.format(date=day.strftime(self.config.DATE_FORMAT))
-            # cache_data = self._get_cache(dauKey)
-            # dauBitmap = self._get_cache(dauKey) or dauBitmap            
-            # if cache_data is None or True: 
-            if True:
-                dauBitmap = Bitmap()
-                cached = self._get_cache(dauKey)
-                if cached:
-                    bitsDau = cached
-                    if cached is 'None':
-                        bitsDau = None
-                else:
-                    logging.debug('no cache:%s',dauKey)
-                    bitsDau  = self.REDIS.get(dauKey)
-                    self._cache(dauKey, bitsDau or 'None')
-                if bitsDau:
-                    dauBitmap.frombytes(bitsDau)
-                    # logging.debug('Init bitmap:Count: %s' % (dauBitmap.count()))
-                    if self.filters:
-                        dauBitmap.filter(self.filters)
-                        # logging.info('Filter bitmap: f-%s b-%s' % (self.filters.count(), dauBitmap.count()))
-                # self._cache(dauKey, dauBitmap)
+            dauBitmap = Bitmap()
+            cached = self._get_cache(dauKey)
+            if cached:
+                bitsDau = cached
+                if cached is 'None':
+                    bitsDau = None
             else:
-                dauBitmap = cache_data
+                logging.debug('no cache:%s',dauKey)
+                bitsDau  = self.REDIS.get(dauKey)
+                self._cache(dauKey, bitsDau or 'None')
+            if bitsDau:
+                dauBitmap.frombytes(bitsDau)
+                # logging.debug('Init bitmap:Count: %s' % (dauBitmap.count()))
+                if self.filters:
+                    dauBitmap.filter(self.filters)
+                    # logging.info('Filter bitmap: f-%s b-%s' % (self.filters.count(), dauBitmap.count()))
+            # self._cache(dauKey, dauBitmap)
         logging.debug('_make_bitmap Handler:%s %s - %s Sec' % (day,Type,time.time()-s))
         return dauBitmap
 
