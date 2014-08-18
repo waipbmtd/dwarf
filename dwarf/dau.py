@@ -286,6 +286,32 @@ class AUstat():
         fday = self.baseDay-timedelta(days=7)
         return self.mau(fday=fday, tday=self.baseDay)
 
+    def list_1day_renu(self,fday,tday):
+        """
+        return the next day's new user retained
+        """
+        dayList = self._list_day(fday, tday)
+        return zip(dayList,[self._get_ndays_renu(d,1) for d in dayList])
+
+    def list_7day_renu(self,fday,tday):
+        """
+        return the seventh day's new user retained
+        """
+        dayList = self._list_day(fday, tday)
+        return zip(dayList,[self._get_ndays_renu(d,7) for d in dayList])
+
+    def list_30day_renu(self,fday,tday):
+        """
+        return the thirtieth day's new user retained
+        """
+        dayList = self._list_day(fday, tday)
+        return zip(dayList,[self._get_ndays_renu(d,30) for d in dayList])
+
+
+    def _get_ndays_renu(self,day,num):
+        return self.get_newuser_bitmap(day)._and_count(
+            self.make_bitmap(day+timedelta(days=num)))
+
     def retained(self, day):
         """
         return the retained user number of baseDay in the givend day
