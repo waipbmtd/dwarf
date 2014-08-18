@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 import os
 
 setup(
@@ -11,6 +11,10 @@ setup(
     description = 'tools for stat active user',
     zip_safe = False,
     platforms = 'any',
-    package_dir = {'': '.'},
+    packages=find_packages(exclude=['*.pyc']),
+    # package_dir = {'': '.'},
     include_package_data = True,
+    depends=[
+        "bitarray",
+    ],
 )
