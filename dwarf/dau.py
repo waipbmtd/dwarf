@@ -208,7 +208,9 @@ class AUstat():
         if day is provided then return the dau of the day
         """
         if not day:
-            return self.baseBitmap.count()    
+            return self.baseBitmap.count()
+        if (day - date.today()).days > 0:
+            return 0
         return self._make_bitmap(day).count()
 
     def get_dnu(self, day=None):
@@ -216,7 +218,9 @@ class AUstat():
         return the daily count of new user number
         """
         if not day:
-            return self.newUserBitmap.count()    
+            return self.newUserBitmap.count()
+        if (day - date.today()).days > 0:
+            return 0
         return self.get_newuser_bitmap(day).count()
 
     def get_mau(self, date=None):
@@ -307,8 +311,9 @@ class AUstat():
         dayList = self._list_day(fday, tday)
         return zip(dayList,[self._get_ndays_renu(d,30) for d in dayList])
 
-
     def _get_ndays_renu(self,day,num):
+        if (day - date.today).days > num:
+            return 0
         return self.get_newuser_bitmap(day)._and_count(
             self.make_bitmap(day+timedelta(days=num)))
 
@@ -341,6 +346,16 @@ class AUstat():
                 )
             )
 
+    def customized_retained_list(self, fday, day_list=[]):
+        """
+        the  day_list's retained number from fday to today
+        :param fday:
+        :param day_list: eg :[0,1,2,3,4,5,6,7,15,30]
+        :return:
+        """
+        dayList = [fday+timedelta(v) for v in day_list]
+        return zip(dayList, self._retained_value(dayList[0], day_list, 'dau'))
+
     def get_month_retained(self, fday, tday):
         """
         monthly retained au count from fday's month to tday's month
@@ -351,7 +366,6 @@ class AUstat():
                     (self._make_bitmap(date, 'mau') for date in lMdates1)
                 )
             )
-
 
     def get_retained_nu(self, fday, tday):
         """
@@ -378,6 +392,19 @@ class AUstat():
                  (self.make_bitmap(day, 'dau') for day in dayList)
                 )
             )
+
+    def customized_nu_retained_list(self, fday, day_list=[]):
+        """
+        the  day_list's retained number from fday to today
+        :param fday:
+        :param day_list: eg :[0,1,2,3,4,5,6,7,15,30]
+        :return:
+        """
+        dayList = [fday+timedelta(v) for v in day_list]
+        firstDay = dayList.pop(0)
+        nuBitmap = self.get_newuser_bitmap(firstDay)
+        return [[firstDay, nuBitmap.count()]] + zip(dayList,
+            self._retained_value(firstDay, dayList, 'dnu'))
 
 
     def get_month_retained_nu(self, fday, tday):
@@ -406,6 +433,24 @@ class AUstat():
                 )
             )
 
+    def _retained_value(self, day, day_list, Type='dau'):
+        if (day - date.today).days > 0:
+            return [0] * len(day_list)
+
+        retained_list = []
+        if Type == 'dau':
+            day_bitmap = self.make_bitmap(day, Type)
+        elif Type == 'dnu':
+            day_bitmap = self.get_newuser_bitmap(day)
+
+        for t_day in day_list:
+            if (t_day - date.today).days > 0:
+                retained_list.append(0)
+            else:
+                retained_list.append(day_bitmap.retained_count(
+                    self.make_bitmap(t_day, 'dau')
+                ))
+        return retained_list
 
 class Filter(Bitmap):
     """
