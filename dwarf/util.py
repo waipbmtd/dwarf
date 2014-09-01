@@ -41,4 +41,17 @@ def list_day(fday, tday):
     """
     days        = (tday - fday).days+1
     dayList     = [fday+timedelta(v) for v in range(days)] 
-    return dayList        
+    return dayList
+
+def deltadays(dt1, dt2):
+    """
+    Difference between two datetime/date values
+    :param dt1: datetime.datetime or datetime.date
+    :param dt2: datetime.datetime or datetime.date
+    :return: datetime.timedelta.days
+    """
+    if isinstance(dt1, datetime):
+        dt1 = dt1.date()
+    if isinstance(dt2, datetime):
+        dt2 = dt2.date()
+    return (dt1 - dt2).days

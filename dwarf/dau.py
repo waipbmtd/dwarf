@@ -209,7 +209,7 @@ class AUstat():
         """
         if not day:
             return self.baseBitmap.count()
-        if (day - date.today()).days > 0:
+        if util.deltadays(day,  date.today()) > 0:
             return 0
         return self._make_bitmap(day).count()
 
@@ -219,7 +219,7 @@ class AUstat():
         """
         if not day:
             return self.newUserBitmap.count()
-        if (day - date.today()).days > 0:
+        if util.deltadays(day, date.today()) > 0:
             return 0
         return self.get_newuser_bitmap(day).count()
 
@@ -312,7 +312,7 @@ class AUstat():
         return zip(dayList,[self._get_ndays_renu(d,30) for d in dayList])
 
     def _get_ndays_renu(self,day,num):
-        if (day - date.today).days > num:
+        if util.deltadays(day, date.today()) > num:
             return 0
         return self.get_newuser_bitmap(day)._and_count(
             self.make_bitmap(day+timedelta(days=num)))
@@ -434,7 +434,7 @@ class AUstat():
             )
 
     def _retained_value(self, day, day_list, Type='dau'):
-        if (day - date.today).days > 0:
+        if util.deltadays(day, date.today()) > 0:
             return [0] * len(day_list)
 
         retained_list = []
@@ -444,10 +444,10 @@ class AUstat():
             day_bitmap = self.get_newuser_bitmap(day)
 
         for t_day in day_list:
-            if (t_day - date.today).days > 0:
+            if util.deltadays(t_day, date.today()) > 0:
                 retained_list.append(0)
             else:
-                retained_list.append(day_bitmap.retained_count(
+                retained_list.append(day_bitmap._and_count(
                     self.make_bitmap(t_day, 'dau')
                 ))
         return retained_list
