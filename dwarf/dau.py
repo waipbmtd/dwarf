@@ -209,8 +209,6 @@ class AUstat():
         """
         if not day:
             return self.baseBitmap.count()
-        if util.deltadays(day,  date.today()) > 0:
-            return 0
         return self._make_bitmap(day).count()
 
     def get_dnu(self, day=None):
@@ -219,8 +217,6 @@ class AUstat():
         """
         if not day:
             return self.newUserBitmap.count()
-        if util.deltadays(day, date.today()) > 0:
-            return 0
         return self.get_newuser_bitmap(day).count()
 
     def get_dru(self, day=None):
@@ -228,8 +224,6 @@ class AUstat():
         return the daily count of new user number
         """
         if not day:
-            return 0
-        if util.deltadays(day, date.today()) > 0:
             return 0
         return self._make_bitmap(day, 'dru').count()
 
@@ -267,10 +261,10 @@ class AUstat():
     def list_dru(self, fday=None, tday=None):
         """
         return a list of daily recharge user from fday to tday
-        list_dnu(string, string) -> [(date1, number),(date2, number)....]
+        list_dru(string, string) -> [(date1, number),(date2, number)....]
         """
         dayList = self._list_day(fday, tday)
-        return zip(dayList, map(self.get_dru,dayList))
+        return zip(dayList, map(self.get_dru, dayList))
 
     def list_mau(self, fday, tday):
         """
@@ -343,8 +337,6 @@ class AUstat():
         return zip(dayList,[self._get_ndays_renu(d,30) for d in dayList])
 
     def _get_ndays_renu(self,day,num):
-        if util.deltadays(day, date.today()) > num:
-            return 0
         return self.get_newuser_bitmap(day)._and_count(
             self.make_bitmap(day+timedelta(days=num)))
 
@@ -465,9 +457,6 @@ class AUstat():
             )
 
     def _retained_value(self, day, day_list, Type='dau'):
-        if util.deltadays(day, date.today()) > 0:
-            return [0] * len(day_list)
-
         retained_list = []
         if Type == 'dau':
             day_bitmap = self.make_bitmap(day, Type)
@@ -475,9 +464,6 @@ class AUstat():
             day_bitmap = self.get_newuser_bitmap(day)
 
         for t_day in day_list:
-            if util.deltadays(t_day, date.today()) > 0:
-                retained_list.append(0)
-            else:
                 retained_list.append(day_bitmap._and_count(
                     self.make_bitmap(t_day, 'dau')
                 ))
