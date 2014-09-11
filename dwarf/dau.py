@@ -464,9 +464,9 @@ class AUstat():
             day_bitmap = self.get_newuser_bitmap(day)
 
         for t_day in day_list:
-                retained_list.append(day_bitmap._and_count(
-                    self.make_bitmap(t_day, 'dau')
-                ))
+            retained_list.append(day_bitmap._and_count(
+                self.make_bitmap(t_day, 'dau')
+            ))
         return retained_list
 
 class Filter(Bitmap):
