@@ -126,7 +126,7 @@ class AUstat():
         dauBitmap  = Bitmap()
         if day:
             DAU_KEY  = self.config.dau_keys_conf[Type]
-            if Type in ('mau','mnu'):
+            if Type in ('mau','mnu','mru'):
                 dauKey   = DAU_KEY.format(month=day.strftime(self.config.MONTH_FORMAT))
             else:
                 dauKey   = DAU_KEY.format(date=day.strftime(self.config.DATE_FORMAT))
@@ -223,6 +223,16 @@ class AUstat():
             return 0
         return self.get_newuser_bitmap(day).count()
 
+    def get_dru(self, day=None):
+        """
+        return the daily count of new user number
+        """
+        if not day:
+            return 0
+        if util.deltadays(day, date.today()) > 0:
+            return 0
+        return self._make_bitmap(day, 'dru').count()
+
     def get_mau(self, date=None):
         if not date:
             date = self.baseDay
@@ -232,6 +242,11 @@ class AUstat():
         if not date:
             date = self.baseDay
         return self.get_newuser_bitmap(date, 'mnu').count()
+
+    def get_mru(self, date=None):
+        if not date:
+            date = self.baseDay
+        return self._make_bitmap(date, 'mru').count()
 
     def list_dau(self, fday=None, tday=None):
         """
@@ -249,6 +264,14 @@ class AUstat():
         dayList = self._list_day(fday, tday)
         return zip(dayList, map(self.get_dnu,dayList))
 
+    def list_dru(self, fday=None, tday=None):
+        """
+        return a list of daily recharge user from fday to tday
+        list_dnu(string, string) -> [(date1, number),(date2, number)....]
+        """
+        dayList = self._list_day(fday, tday)
+        return zip(dayList, map(self.get_dru,dayList))
+
     def list_mau(self, fday, tday):
         """
         month active user count
@@ -264,6 +287,14 @@ class AUstat():
         """
         lMonth = util.month1stdate(fday, tday)
         return zip(lMonth, map(self.get_mnu, lMonth))
+
+    def list_mru(self, fday, tday):
+        """
+        monthly rechange user count
+        list_mnu(string, string) -> [(datetime1, int),(datetime2,int),....]
+        """
+        lMonth = util.month1stdate(fday, tday)
+        return zip(lMonth, map(self.get_mru, lMonth))
 
     def mau(self, fday=None, tday=None):
         """
@@ -611,6 +642,19 @@ class AUrecord():
             logging.debug('Save auid in redis by setbit %s %d 1' % (rKey, offset)) 
             
 
+    def mapRechargeUser(self, date, userid):
+        """
+        set recharge user
+        """
+        sDate     = date.strftime(self.config.DATE_FORMAT)
+        mDate     = date.strftime(self.config.MONTH_FORMAT)
+        reKey     = self.config.dau_keys_conf['dru'].format(date=sDate)
+        moKey     = self.config.dau_keys_conf['mru'].format(month=mDate)
+        redis_cli = self.get_redis_cli()
+        offset    = int(userid)
+        if offset > -1 and offset <= self.config.MAX_BITMAP_LENGTH:
+            redis_cli.setbit(reKey, offset, 1)
+            redis_cli.setbit(moKey, offset, 1)
 
     def get_redis_cli(self):
         return self.redis
