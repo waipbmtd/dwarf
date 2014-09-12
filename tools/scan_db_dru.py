@@ -45,7 +45,7 @@ class numCounter():
         sys.stdout.flush()
 
     def end(self):
-        print "\n"
+        print ""
 
 
 class redisPipeline:
@@ -103,7 +103,7 @@ def get_recharge_users(f_date, t_date, mysql_conn):
     if t_date:
         sql += " and complete_time <='%s'" % t_date.strftime("%Y-%m-%d")
 
-    logging.info("get recharge user sql is : \n %s" % sql)
+    logging.info("get recharge user sql is : %s" % sql)
 
     cursor = mysql_conn.cursor()
     n = cursor.execute(sql)
@@ -135,10 +135,10 @@ def run():
                         default=None,
                         help="开始时间，如:20140101,默认无开始时间")
     parser.add_argument("-t", "--to_date",
-                        required=True,
-                        default=datetime.today() + timedelta(days=-1),
+                        required=False,
+                        default=datetime.today(),
                         type=parse_datetime,
-                        help="截止时间，格式如201401031，默认今天")
+                        help="截止时间，格式如20140131,默认为当天")
 
     args = parser.parse_args()
     logging.info("参数为：%s" % args)
