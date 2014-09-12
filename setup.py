@@ -1,9 +1,9 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 import os
 
 setup(
     name = 'dwarf',
-    version = '0.1',
+    version = '${version}',
     url = 'https://github.com/Camelsky/dwarf.git',
     license = 'MIT',
     author = 'camelsky',
@@ -11,6 +11,10 @@ setup(
     description = 'tools for stat active user',
     zip_safe = False,
     platforms = 'any',
-    package_dir = {'': '.'},
+    packages=find_packages(exclude=['*.pyc']),
+    # package_dir = {'': '.'},
     include_package_data = True,
+    install_requires=[
+        "bitarray",
+    ],
 )
