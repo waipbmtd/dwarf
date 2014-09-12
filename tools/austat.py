@@ -49,6 +49,12 @@ class austat():
         """
         return self.au.list_dnu(fday=from_date, tday=to_date)
 
+    def dru_list(self, from_date, to_date):
+        """
+        list daily recharge user from 'from_date' to 'to_date'
+        """
+        return self.au.list_dru(fday=from_date, tday=to_date)
+
     def dau_retained(self, from_date, to_date):
         """
         活跃用户留存列表
@@ -129,8 +135,10 @@ def do(value, As, fday, tday):
         'mnu': lambda:As.au.get_mnu(As.au.baseDay),
         'ldau': lambda:As.dau_list(fday, tday),
         'ldnu': lambda:As.dnu_list(fday,tday),
+        'ldru': lambda:As.dru_list(fday,tday),
         'lmau': lambda:As.au.list_mau(fday, tday),
         'lmnu': lambda:As.au.list_mnu(fday, tday),
+        'lmru': lambda:As.au.list_mru(fday, tday),
         'reau': lambda:As.dau_retained(fday,tday),
         'remau': lambda:As.mau_retained(fday, tday, 'mau'),
         'renu': lambda:As.dnu_retained(fday,tday),

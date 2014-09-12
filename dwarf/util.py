@@ -41,4 +41,4 @@ def list_day(fday, tday):
     """
     days        = (tday - fday).days+1
     dayList     = [fday+timedelta(v) for v in range(days)] 
-    return dayList        
+    return dayList
