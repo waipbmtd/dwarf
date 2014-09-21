@@ -70,7 +70,7 @@ class redisPipeline:
 
 
 def get_mysql():
-    conf = db_config.mysql_conf
+    conf = db_config.mysql_payment_conf
     conn = MySQLdb.connect(
         host=conf['host'],
         db=conf['db'],
@@ -99,9 +99,9 @@ def get_redis_client(pipe=False):
 def get_recharge_users(f_date, t_date, mysql_conn):
     sql = "select complete_time,user_id from user_order where status=2 "
     if f_date:
-        sql += " and complete_time >='%s'" % f_date.strftime("%Y-%m-%d")
+        sql += " and date(complete_time) >='%s'" % f_date.strftime("%Y-%m-%d")
     if t_date:
-        sql += " and complete_time <='%s'" % t_date.strftime("%Y-%m-%d")
+        sql += " and date(complete_time) <='%s'" % t_date.strftime("%Y-%m-%d")
 
     logging.info("get recharge user sql is : %s" % sql)
 
